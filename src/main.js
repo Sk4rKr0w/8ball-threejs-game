@@ -22,6 +22,7 @@ const renderer = new THREE.WebGLRenderer({
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true; // Abilita le ombre
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
 
 //-----------------------//
 // Creating OrbitControls
@@ -208,13 +209,16 @@ document.getElementById("back-view-btn").addEventListener("click", () => {
 // Starting Setting Balls Position
 // ------------------------------ //
 class Ball {
-    constructor(radius, color, initialPosition) {
+    constructor(radius, initialPosition, texture = null) {
         this.geometry = new THREE.SphereGeometry(radius, 32, 32);
+
         this.material = new THREE.MeshStandardMaterial({
-            color: color,
             metalness: 0.5,
             roughness: 0.2,
+            map: texture,
         });
+
+        this.material.toneMapped = false;
         this.mesh = new THREE.Mesh(this.geometry, this.material);
 
         this.mesh.position.copy(initialPosition);
@@ -224,7 +228,7 @@ class Ball {
         this.velocity = new THREE.Vector3(0, 0, 0);
         this.angularVelocity = new THREE.Vector3(0, 0, 0);
 
-        this.mass = 0.21; // mass of the ball in kg (~210g)
+        this.mass = 0.21;
         scene.add(this.mesh);
     }
 
@@ -232,58 +236,62 @@ class Ball {
         this.mesh.position.add(this.velocity.clone().multiplyScalar(deltaTime));
         handleTableCollision(this);
 
+        this.angularVelocity.copy(
+            new THREE.Vector3()
+                .crossVectors(this.velocity, new THREE.Vector3(0, 1, 0))
+                .divideScalar(this.geometry.parameters.radius)
+        );
+
         this.mesh.rotation.x += this.angularVelocity.x * deltaTime;
-        this.mesh.rotation.y += this.angularVelocity.x * deltaTime;
-        this.mesh.rotation.z += this.angularVelocity.x * deltaTime;
+        this.mesh.rotation.y += this.angularVelocity.y * deltaTime;
+        this.mesh.rotation.z += this.angularVelocity.z * deltaTime;
 
         this.velocity.multiplyScalar(0.98); // Simulates friction by reducing the velocity by 2% each frame
         this.angularVelocity.multiplyScalar(0.98);
     }
 }
 
-const ballColors = [
-    0xffff00, // 1 Yellow
-    0x0000ff, // 2 Blue
-    0xff0000, // 3 Red
-    0x800080, // 4 Purple
-    0xffa500, // 5 Orange
-    0x008000, // 6 Green
-    0x800000, // 7 Maroon
-    0x000000, // 8 Black
-    0xffff00, // 9 Yellow (striped)
-    0x0000ff, // 10 Blue (striped)
-    0xff0000, // 11 Red (striped)
-    0x800080, // 12 Purple (striped)
-    0xffa500, // 13 Orange (striped)
-    0x008000, // 14 Green (striped)
-    0x800000, // 15 Maroon (striped)
-];
-
 const ballRadius = 0.075;
 const spacing = ballRadius * 2.05;
 const triangleStart = new THREE.Vector3(0.5, 2.55, 0);
 const balls = [];
 
-const whiteBall = new Ball(0.075, 0xffffff, new THREE.Vector3(0, 2.55, -1.5));
+const whiteBall = new Ball(0.075, new THREE.Vector3(0, 2.55, -1.5));
 balls.push(whiteBall);
 
 function createTriangleBalls() {
     let index = 0;
     const rows = 5;
+
     for (let row = 0; row < rows; row++) {
         for (let col = 0; col <= row; col++) {
-            if (index >= ballColors.lenght) {
-                break;
-            }
-            const z = triangleStart.x + (row * spacing * Math.sqrt(3)) / 2; // Forward sin(60)
-            const x = triangleStart.z + (col - row / 2) * spacing; // Lateral
-
+            const z = triangleStart.x + (row * spacing * Math.sqrt(3)) / 2;
+            const x = triangleStart.z + (col - row / 2) * spacing;
             const pos = new THREE.Vector3(x, 2.55, z);
-            const ball = new Ball(ballRadius, ballColors[index], pos);
+
+            const ball = new Ball(ballRadius, pos, ballTextures[index]);
+
             balls.push(ball);
             index++;
         }
     }
+}
+
+//------------------------------//
+// Applying balls textures
+//------------------------------//
+const textureLoader = new THREE.TextureLoader();
+const ballTextures = [];
+
+for (let i = 1; i <= 15; i++) {
+    const texture = textureLoader.load(
+        `/models/billiards/textures/balls/ball${i}.png`
+    );
+    texture.encoding = THREE.sRGBEncoding;
+    texture.generateMipmaps = false;
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    ballTextures.push(texture);
 }
 
 createTriangleBalls();
@@ -409,6 +417,68 @@ function resolveCollision(ball1, ball2) {
     }
 }
 
+//----------------------------//
+// Creating HitBoxes for score
+//----------------------------//
+const pocketRadius = 0.25;
+
+const pockets = [];
+const pocketPositions = [
+    new THREE.Vector3(tableMinX + 0.05, 2.45, tableMinZ + 0.05), // TOP RIGHT
+    new THREE.Vector3(tableMinX + 0.05, 2.45, tableMaxZ - 0.05), // TOP LEFT
+    new THREE.Vector3(tableMaxX - 0.05, 2.45, tableMinZ + 0.05), // BOTTOM RIGHT
+    new THREE.Vector3(tableMaxX - 0.05, 2.45, tableMaxZ - 0.05), // BOTTOM LEFT
+    new THREE.Vector3(tableMinX - 0.15, 2.45, 0), // CENTER TOP
+    new THREE.Vector3(tableMaxX + 0.15, 2.45, 0), // CENTER BOTTOM
+];
+
+pocketPositions.forEach((pos) => {
+    const pocket = {
+        position: pos,
+        radius: pocketRadius,
+    };
+    pockets.push(pocket);
+});
+
+function checkBallInPocket(ball) {
+    for (let pocket of pockets) {
+        const dist = ball.mesh.position.distanceTo(pocket.position);
+        if (dist < ball.geometry.parameters.radius + pocket.radius) {
+            return true; // Collision Detected
+        }
+    }
+    return false;
+}
+
+function removeBall(ball) {
+    scene.remove(ball.mesh);
+    const index = balls.indexOf(ball);
+    if (index > -1) {
+        balls.splice(index, 1);
+    }
+}
+
+//--------------------------------------------------//
+// Debugger for Pockets (uncomment to see hitboxes)
+//--------------------------------------------------//
+/*
+const debugPocketMeshes = [];
+
+pocketPositions.forEach((pos) => {
+    const geometry = new THREE.SphereGeometry(pocketRadius, 16, 16);
+    const material = new THREE.MeshBasicMaterial({
+        color: 0xff0000,
+        wireframe: true,
+        opacity: 0.5,
+        transparent: true,
+    });
+    const sphere = new THREE.Mesh(geometry, material);
+    sphere.position.copy(pos);
+    scene.add(sphere);
+    debugPocketMeshes.push(sphere);
+});
+*/
+
 //-----------------------//
 // Initialize Clock
 //-----------------------//
@@ -439,16 +509,23 @@ function animate() {
         }
     }
 
+    balls.forEach((ball) => {
+        if (
+            checkBallInPocket(ball) &&
+            ball.mesh.material.color.getHex() != 0xffffff
+        ) {
+            removeBall(ball);
+            console.log("Palla in Buca!!");
+        }
+    });
+
     controls.update();
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
 }
 
 // Dummy Test
-balls.forEach((ball) => {
-    if (ball.material.color.getHex() === 0xffffff) {
-        ball.velocity.set(0, 0, 0.75);
-    }
-});
+
+whiteBall.velocity.set(0, 0, 1);
 
 animate();
