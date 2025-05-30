@@ -246,8 +246,8 @@ class Ball {
         this.mesh.rotation.y += this.angularVelocity.y * deltaTime;
         this.mesh.rotation.z += this.angularVelocity.z * deltaTime;
 
-        this.velocity.multiplyScalar(0.98); // Simulates friction by reducing the velocity by 2% each frame
-        this.angularVelocity.multiplyScalar(0.98);
+        this.velocity.multiplyScalar(0.9825); // Simulates friction by reducing the velocity by 1.75% each frame
+        this.angularVelocity.multiplyScalar(0.9825);
     }
 }
 
@@ -523,7 +523,7 @@ function animate() {
 
 // Dummy Test
 setTimeout(() => {
-    whiteBall.velocity.set(0, 0, 15);
+    whiteBall.velocity.set(0, 0, 20);
 }, 1000);
 
 animate();
