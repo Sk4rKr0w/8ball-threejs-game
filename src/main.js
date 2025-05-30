@@ -488,7 +488,7 @@ const clock = new THREE.Clock();
 // Animation Loop //
 // ------------------------------ //
 function animate() {
-    const elapsedTime = clock.getElapsedTime();
+    const deltaTime = clock.getDelta();
 
     updateCameraMovement();
     if (targetCameraPosition) {
@@ -499,7 +499,7 @@ function animate() {
         }
     }
 
-    balls.forEach((ball) => ball.update(elapsedTime));
+    balls.forEach((ball) => ball.update(deltaTime));
 
     for (let i = 0; i < balls.length; i++) {
         for (let j = i + 1; j < balls.length; j++) {
@@ -510,10 +510,7 @@ function animate() {
     }
 
     balls.forEach((ball) => {
-        if (
-            checkBallInPocket(ball) &&
-            ball.mesh.material.color.getHex() != 0xffffff
-        ) {
+        if (checkBallInPocket(ball) && ball !== whiteBall) {
             removeBall(ball);
             console.log("Palla in Buca!!");
         }
@@ -525,7 +522,9 @@ function animate() {
 }
 
 // Dummy Test
-
-whiteBall.velocity.set(0, 0, 1);
+setTimeout(() => {
+    whiteBall.velocity.set(0, 0, 15);
+}, 1000);
+a;
 
 animate();
