@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+        <link rel="stylesheet" href="/src/style.css" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Vite App</title>
+    </head>
+    <body>
+        <canvas id="threejs"></canvas>
+        <div
+            class="absolute top-2 right-1 grid grid-cols-2 gap-2 p-2 bg-gray-700 rounded-md scale-80"
+        >
+            <button
+                class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
+                id="reset-camera-btn"
+            >
+                Reset Camera
+            </button>
+            <button
+                class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
+                id="top-view-btn"
+            >
+                Top View POV
+            </button>
+            <button
+                class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
+                id="front-view-btn"
+            >
+                Front View POV
+            </button>
+            <button
+                class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
+                id="back-view-btn"
+            >
+                Back View POV
+            </button>
+        </div>
+        <script type="module" src="/src/main.js"></script>
+    </body>
+</html>
