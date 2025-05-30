@@ -525,6 +525,5 @@ function animate() {
 setTimeout(() => {
     whiteBall.velocity.set(0, 0, 15);
 }, 1000);
-a;
 
 animate();
