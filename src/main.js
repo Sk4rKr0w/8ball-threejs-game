@@ -13,8 +13,6 @@ const camera = new THREE.PerspectiveCamera(
     1000
 );
 
-camera.position.set(5, 5, 0);
-
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
     antialias: true,
@@ -26,13 +24,14 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 // Creating OrbitControls
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
+camera.position.set(5, 5, 0);
+controls.target.set(0, 2.5, 0);
 controls.update();
 
 // Variabile globale per la bounding box del tavolo
 let tableBox = null;
 
 // Importing 8Pool Table and creating ball array
-
 const loader = new GLTFLoader();
 loader.load("/models/billiards/scene.gltf", (gltf) => {
     const table = gltf.scene;
@@ -165,16 +164,17 @@ window.addEventListener("keyup", (event) => {
 function updateCameraMovement() {
     const moveDirection = new THREE.Vector3();
 
-    // Direzione frontale (verso dove guarda)
+    // Forward Direction
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward);
     forward.y = 0;
     forward.normalize();
 
-    // Direzione laterale destra (corretta)
+    // Right Direction
     const right = new THREE.Vector3();
     right.crossVectors(forward, camera.up).normalize();
 
+    // If statements to check for movement keys
     if (keysPressed.forward) moveDirection.add(forward);
     if (keysPressed.backward) moveDirection.sub(forward);
     if (keysPressed.right) moveDirection.add(right);
@@ -183,7 +183,7 @@ function updateCameraMovement() {
     moveDirection.normalize().multiplyScalar(speed);
     camera.position.add(moveDirection);
 
-    // Se vuoi che anche il target si muova con la camera:
+    // OrbitControls updated with camera
     controls.target.add(moveDirection);
 }
 
@@ -212,7 +212,7 @@ document.getElementById("back-view-btn").addEventListener("click", () => {
 function animate() {
     updateCameraMovement();
     if (targetCameraPosition) {
-        camera.position.lerp(targetCameraPosition, 0.1); // 0.1 = velocità
+        camera.position.lerp(targetCameraPosition, 0.05); // 0.05 = speed
 
         if (camera.position.distanceTo(targetCameraPosition) < 0.01) {
             camera.position.copy(targetCameraPosition);
