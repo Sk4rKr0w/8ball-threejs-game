@@ -1,0 +1,11 @@
+Model Information:
+* title:	Billiard cue
+* source:	https://sketchfab.com/3d-models/billiard-cue-62eaf96b3abb4b9d8c40b3d46e2f713d
+* author:	stivenguerrero (https://sketchfab.com/stivenguerrero)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Billiard cue" (https://sketchfab.com/3d-models/billiard-cue-62eaf96b3abb4b9d8c40b3d46e2f713d) by stivenguerrero (https://sketchfab.com/stivenguerrero) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
