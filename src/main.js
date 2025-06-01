@@ -20,7 +20,7 @@ const renderer = new THREE.WebGLRenderer({
     antialias: true,
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true; // Abilita le ombre
+renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 
@@ -33,9 +33,9 @@ camera.position.set(5, 5, 0);
 controls.target.set(0, 2.5, 0);
 controls.update();
 
-//-----------------------//
+//-----------------------------------------------//
 // Importing 8Pool Table and creating ball array
-//-----------------------//
+//-----------------------------------------------//
 const loader = new GLTFLoader();
 loader.load("/models/billiards/scene.gltf", (gltf) => {
     const table = gltf.scene;
@@ -66,19 +66,6 @@ loader.load("/models/billiards/scene.gltf", (gltf) => {
     console.log(table);
     console.log("Modello caricato!");
 });
-
-//-----------------------//
-// Adding plane for table
-//-----------------------//
-const planeGeometry = new THREE.PlaneGeometry(2.75, 6.35);
-const planeMaterial = new THREE.MeshStandardMaterial({
-    side: THREE.DoubleSide,
-    visible: false,
-});
-const plane = new THREE.Mesh(planeGeometry, planeMaterial);
-plane.position.y = 2.5;
-plane.rotation.x = Math.PI / 2;
-scene.add(plane);
 
 // --------------------------//
 // Adding Lights to the scene
@@ -111,102 +98,95 @@ window.addEventListener("resize", () => {
     camera.updateProjectionMatrix();
 });
 
-const keysPressed = {
-    forward: false,
-    backward: false,
-    left: false,
-    right: false,
-    up: false,
-    down: false,
-};
-
-window.addEventListener("keydown", (event) => {
-    switch (event.key.toLowerCase()) {
-        case "w":
-        case "arrowup":
-            keysPressed.forward = true;
-            break;
-        case "s":
-        case "arrowdown":
-            keysPressed.backward = true;
-            break;
-        case "a":
-        case "arrowleft":
-            keysPressed.left = true;
-            break;
-        case "d":
-        case "arrowright":
-            keysPressed.right = true;
-            break;
-        case " ":
-            keysPressed.up = true;
-            break;
-        case "shift":
-            keysPressed.down = true;
-            break;
-    }
-});
-
-window.addEventListener("keyup", (event) => {
-    switch (event.key.toLowerCase()) {
-        case "w":
-        case "arrowup":
-            keysPressed.forward = false;
-            break;
-        case "s":
-        case "arrowdown":
-            keysPressed.backward = false;
-            break;
-        case "a":
-        case "arrowleft":
-            keysPressed.left = false;
-            break;
-        case "d":
-        case "arrowright":
-            keysPressed.right = false;
-            break;
-        case " ":
-            keysPressed.up = false;
-            break;
-        case "shift":
-            keysPressed.down = false;
-            break;
-    }
-});
-
-function updateCameraMovement() {
-    if (keysPressed.forward) camera.position.x -= 0.1;
-    if (keysPressed.backward) camera.position.x += 0.1;
-    if (keysPressed.right) camera.position.z -= 0.1;
-    if (keysPressed.left) camera.position.z += 0.1;
-    if (keysPressed.up) camera.position.y += 0.1;
-    if (keysPressed.down) camera.position.y -= 0.1;
-}
-
-let targetCameraPosition = null;
+// Camera Buttons
+const cameraTargetPosition = new THREE.Vector3();
+cameraTargetPosition.copy(camera.position);
+let isCameraMoving = false;
 
 document.getElementById("reset-camera-btn").addEventListener("click", () => {
-    targetCameraPosition = new THREE.Vector3(5, 5, 0);
+    cameraTargetPosition.set(5, 5, 0);
     controls.target.set(0, 2.5, 0);
+    isCameraMoving = true;
 });
 
 document.getElementById("top-view-btn").addEventListener("click", () => {
-    targetCameraPosition = new THREE.Vector3(1.5, 5, 0);
+    cameraTargetPosition.set(1.5, 5, 0);
     controls.target.set(0, 2.5, 0);
+    isCameraMoving = true;
 });
 
 document.getElementById("front-view-btn").addEventListener("click", () => {
-    targetCameraPosition = new THREE.Vector3(0, 4, 5);
+    cameraTargetPosition.set(0, 4, 5);
     controls.target.set(0, 2.5, 0);
+    isCameraMoving = true;
 });
 
 document.getElementById("back-view-btn").addEventListener("click", () => {
-    targetCameraPosition = new THREE.Vector3(0, 4, -5);
+    cameraTargetPosition.set(0, 4, -5);
     controls.target.set(0, 2.5, 0);
+    isCameraMoving = true;
+});
+
+// Resetting Balls Triangle
+document.getElementById("ball-triangle-btn").addEventListener("click", () => {
+    // 1 - Removing all the ball from the scene
+    balls.forEach((ball) => {
+        scene.remove(ball.mesh);
+    });
+    balls.length = 0;
+
+    // 2 - New white ball
+    whiteBall = new Ball(0.075, new THREE.Vector3(0, 2.55, -1.5));
+    balls.push(whiteBall);
+
+    // 3 - Create a new Triangle
+    createTriangleBalls();
+
+    // 4 - Resetting Stick Angle
+    stickAngle = Math.PI / 2;
+});
+
+// "Take a Shot" Dummy Test:
+// Shoots the white ball to a random position by setting its velocity
+document.getElementById("dummy-test-btn").addEventListener("click", () => {
+    const randomSpeed = 20;
+    const vx = (Math.random() * 2 - 1) * randomSpeed;
+    const vz = (Math.random() * 2 - 1) * randomSpeed;
+    whiteBall.velocity.set(vx, 0, vz);
+});
+
+window.addEventListener("keydown", (event) => {
+    const rotationSpeed = 0.05;
+
+    // Rotating the Cue Stick clockwise
+    if (event.key === "ArrowLeft") {
+        stickAngle += rotationSpeed * 1.5;
+    }
+    // Rotating the Cue Stick counter-clockwise
+    else if (event.key === "ArrowRight") {
+        stickAngle -= rotationSpeed * 1.5;
+    }
+    // Hitting the ball with the cue stick
+    else if (event.key === "Enter") {
+        if (whiteBall.velocity.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.01) {
+            animateStickShot(() => {
+                let direction = new THREE.Vector3();
+                direction.subVectors(
+                    whiteBall.mesh.position,
+                    new THREE.Vector3(stick.position.x, 2.55, stick.position.z)
+                );
+                direction.normalize();
+                let force = direction.clone().multiplyScalar(10);
+                whiteBall.velocity = force;
+            });
+        } else {
+            console.log("Ball is already in motion");
+        }
+    }
 });
 
 // ------------------------------ //
-// Starting Setting Balls Position
+// Ball Class + Setting Balls Position
 // ------------------------------ //
 class Ball {
     constructor(radius, initialPosition, texture = null) {
@@ -246,17 +226,21 @@ class Ball {
         this.mesh.rotation.y += this.angularVelocity.y * deltaTime;
         this.mesh.rotation.z += this.angularVelocity.z * deltaTime;
 
-        this.velocity.multiplyScalar(0.9825); // Simulates friction by reducing the velocity by 1.75% each frame
+        // Simulates friction by reducing the velocity by 1.75% each frame
+        this.velocity.multiplyScalar(0.9825);
         this.angularVelocity.multiplyScalar(0.9825);
     }
 }
 
+//----------------------------------------------//
+// Creating Balls + Texture and Triangle Positioning
+//----------------------------------------------//
 const ballRadius = 0.075;
 const spacing = ballRadius * 2.05;
 const triangleStart = new THREE.Vector3(0.5, 2.55, 0);
 const balls = [];
 
-const whiteBall = new Ball(0.075, new THREE.Vector3(0, 2.55, -1.5));
+let whiteBall = new Ball(0.075, new THREE.Vector3(0, 2.55, -1.5));
 balls.push(whiteBall);
 
 function createTriangleBalls() {
@@ -299,8 +283,8 @@ createTriangleBalls();
 //------------------------------//
 // Ball-Table Collision Handler
 //------------------------------//
-const tableWidth = 2.75;
-const tableLength = 6.35;
+const tableWidth = 2.7;
+const tableLength = 6.3;
 
 const tableMinX = -tableWidth / 2;
 const tableMaxX = tableWidth / 2;
@@ -379,8 +363,8 @@ function resolveCollision(ball1, ball2) {
         ball1.velocity.addScaledVector(normal, v1nChange);
         ball2.velocity.addScaledVector(normal, v2nChange);
 
-        // --- NUOVO: Calcolo rotazione / spin ---
-
+        // Ball Rotations
+        // TO-DO: Update Comments
         // Punto di contatto medio
         const contactPoint = new THREE.Vector3()
             .addVectors(ball1.mesh.position, ball2.mesh.position)
@@ -417,12 +401,13 @@ function resolveCollision(ball1, ball2) {
     }
 }
 
-//----------------------------//
-// Creating HitBoxes for score
-//----------------------------//
+//-----------------------------------//
+// Creating Pocket HitBoxes for score
+//-----------------------------------//
 const pocketRadius = 0.25;
 
 const pockets = [];
+let score = 0;
 const pocketPositions = [
     new THREE.Vector3(tableMinX + 0.05, 2.45, tableMinZ + 0.05), // TOP RIGHT
     new THREE.Vector3(tableMinX + 0.05, 2.45, tableMaxZ - 0.05), // TOP LEFT
@@ -444,7 +429,7 @@ function checkBallInPocket(ball) {
     for (let pocket of pockets) {
         const dist = ball.mesh.position.distanceTo(pocket.position);
         if (dist < ball.geometry.parameters.radius + pocket.radius) {
-            return true; // Collision Detected
+            return true;
         }
     }
     return false;
@@ -461,6 +446,7 @@ function removeBall(ball) {
 //--------------------------------------------------//
 // Debugger for Pockets (uncomment to see hitboxes)
 //--------------------------------------------------//
+
 /*
 const debugPocketMeshes = [];
 
@@ -479,25 +465,111 @@ pocketPositions.forEach((pos) => {
 });
 */
 
+//---------------------------//
+// Adding Stick to the scene
+//----------------------------//
+
+let stick;
+
+loader.load("/models/billiard_cue/scene.gltf", (gltf) => {
+    stick = gltf.scene;
+    stick.position.y = 2.55;
+    stick.scale.set(2, 1, 1);
+    scene.add(stick);
+});
+
+//----------------------------//
+// Adjusting Stick Positioning
+//----------------------------//
+let stickAngle = Math.PI / 2;
+let stickRadius = -1.75; // Distance from White Ball
+
+function adjustStickPosition() {
+    if (!stick || !whiteBall) return;
+
+    const center = whiteBall.mesh.position;
+
+    // Setting Stick Position around White Ball
+    stick.position.x = center.x + stickRadius * Math.cos(stickAngle);
+    stick.position.z = center.z + stickRadius * Math.sin(stickAngle);
+    stick.position.y = 2.6;
+
+    // Computing Angle Y used to let the stick follow the white ball
+    // Stick-WhiteBall Vector
+    const direction = new THREE.Vector3();
+    direction.subVectors(center, stick.position);
+    direction.y = 0; // Ignora altezza per rotazione solo sull'asse Y
+    direction.normalize();
+
+    const angleY = Math.atan2(direction.x, direction.z);
+    const tiltAngle = 0.025; // Usefull to give a little tilt to the stick
+
+    // Rotation around the Y-Axis
+    stick.rotation.set(tiltAngle, angleY + Math.PI, 0);
+
+    // Making the stick "pointing" at the white ball
+    stick.rotation.y += Math.PI / 2;
+}
+
+//--------------------------------------------//
+// Adding Cue Stick "Animation" for the shoot
+//--------------------------------------------//
+function animateStickShot(callback) {
+    const duration = 150;
+    const retreatDelay = 75;
+    const retreatDuration = 150;
+
+    const start = -1.75;
+    const end = -1.5;
+
+    const startTime = performance.now();
+
+    function animateForward(now) {
+        const elapsed = now - startTime;
+        const t = Math.min(elapsed / duration, 1);
+        stickRadius = start + (end - start) * t;
+
+        if (t < 1) {
+            requestAnimationFrame(animateForward);
+        } else {
+            if (callback) callback(); // 💥 Esegui qui la forza, al momento dell'impatto
+            setTimeout(() => {
+                const retreatStart = performance.now();
+                function animateBackward(nowRetreat) {
+                    const elapsedBack = nowRetreat - retreatStart;
+                    const tBack = Math.min(elapsedBack / retreatDuration, 1);
+                    stickRadius = end + (start - end) * tBack;
+                    if (tBack < 1) {
+                        requestAnimationFrame(animateBackward);
+                    } else {
+                        stickRadius = start;
+                    }
+                }
+                requestAnimationFrame(animateBackward);
+            }, retreatDelay);
+        }
+    }
+
+    requestAnimationFrame(animateForward);
+}
+
+//----------------------------------------//
+// Adding Trajectory Line Stick-WhiteBall
+//----------------------------------------//
+
+// TO-DO //
+
 //-----------------------//
 // Initialize Clock
 //-----------------------//
 const clock = new THREE.Clock();
 
-// ------------------------------ //
-// Animation Loop //
-// ------------------------------ //
+// ----------------------------------//
+// Animation Loop + Helper Functions //
+// ----------------------------------//
+
 function animate() {
     const deltaTime = clock.getDelta();
-
-    updateCameraMovement();
-    if (targetCameraPosition) {
-        camera.position.lerp(targetCameraPosition, 0.05); // 0.05 = speed
-        if (camera.position.distanceTo(targetCameraPosition) < 0.01) {
-            camera.position.copy(targetCameraPosition);
-            targetCameraPosition = null;
-        }
-    }
 
     balls.forEach((ball) => ball.update(deltaTime));
 
@@ -512,18 +584,25 @@ function animate() {
     balls.forEach((ball) => {
         if (checkBallInPocket(ball) && ball !== whiteBall) {
             removeBall(ball);
-            console.log("Palla in Buca!!");
+            score++;
+            console.log("Palla in Buca!! Il tuo punteggio: " + score);
         }
     });
+
+    if (isCameraMoving) {
+        camera.position.lerp(cameraTargetPosition, 0.05);
+        if (camera.position.distanceTo(cameraTargetPosition) < 0.01) {
+            isCameraMoving = false;
+        }
+    }
+
+    if (whiteBall.velocity.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.01) {
+        adjustStickPosition();
+    }
 
     controls.update();
     requestAnimationFrame(animate);
     renderer.render(scene, camera);
 }
-
-// Dummy Test
-setTimeout(() => {
-    whiteBall.velocity.set(0, 0, 20);
-}, 1000);
 
 animate();
