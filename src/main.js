@@ -63,8 +63,7 @@ loader.load("/models/billiards/scene.gltf", (gltf) => {
     });
 
     scene.add(table);
-    console.log(table);
-    console.log("Modello caricato!");
+    console.log("Modello del tavolo caricato!");
 });
 
 // --------------------------//
@@ -110,7 +109,7 @@ document.getElementById("reset-camera-btn").addEventListener("click", () => {
 });
 
 document.getElementById("top-view-btn").addEventListener("click", () => {
-    cameraTargetPosition.set(1.5, 5, 0);
+    cameraTargetPosition.set(0, 5, 0);
     controls.target.set(0, 2.5, 0);
     isCameraMoving = true;
 });
@@ -160,11 +159,11 @@ window.addEventListener("keydown", (event) => {
 
     // Rotating the Cue Stick clockwise
     if (event.key === "ArrowLeft") {
-        stickAngle += rotationSpeed * 1.5;
+        stickAngle -= rotationSpeed;
     }
     // Rotating the Cue Stick counter-clockwise
     else if (event.key === "ArrowRight") {
-        stickAngle -= rotationSpeed * 1.5;
+        stickAngle += rotationSpeed;
     }
     // Hitting the ball with the cue stick
     else if (event.key === "Enter") {
@@ -176,7 +175,7 @@ window.addEventListener("keydown", (event) => {
                     new THREE.Vector3(stick.position.x, 2.55, stick.position.z)
                 );
                 direction.normalize();
-                let force = direction.clone().multiplyScalar(10);
+                let force = direction.clone().multiplyScalar(3.5); // 3.5 is the force applied to the ball by the shot (simulating a mid-powerful shot)
                 whiteBall.velocity = force;
             });
         } else {
@@ -209,6 +208,7 @@ class Ball {
         this.angularVelocity = new THREE.Vector3(0, 0, 0);
 
         this.mass = 0.21;
+        this.isSolid = false;
         scene.add(this.mesh);
     }
 
@@ -216,19 +216,25 @@ class Ball {
         this.mesh.position.add(this.velocity.clone().multiplyScalar(deltaTime));
         handleTableCollision(this);
 
-        this.angularVelocity.copy(
-            new THREE.Vector3()
-                .crossVectors(this.velocity, new THREE.Vector3(0, 1, 0))
-                .divideScalar(this.geometry.parameters.radius)
-        );
+        let spinScale = 1.2; // Incrementing this value will increase the spin of the ball
+
+        this.angularVelocity
+            .copy(
+                new THREE.Vector3()
+                    .crossVectors(this.velocity, new THREE.Vector3(0, 1, 0))
+                    .divideScalar(this.geometry.parameters.radius)
+            )
+            .multiplyScalar(spinScale);
 
         this.mesh.rotation.x += this.angularVelocity.x * deltaTime;
         this.mesh.rotation.y += this.angularVelocity.y * deltaTime;
         this.mesh.rotation.z += this.angularVelocity.z * deltaTime;
 
         // Simulates friction by reducing the velocity by 1.75% each frame
-        this.velocity.multiplyScalar(0.9825);
-        this.angularVelocity.multiplyScalar(0.9825);
+        const dampingFactorPerSecond = 0.8; // questo va ridefinito meglio
+        const damping = Math.pow(dampingFactorPerSecond, deltaTime); // dove deltaTime è del substep
+        this.velocity.multiplyScalar(damping);
+        this.angularVelocity.multiplyScalar(damping);
     }
 }
 
@@ -237,7 +243,7 @@ class Ball {
 //----------------------------------------------//
 const ballRadius = 0.075;
 const spacing = ballRadius * 2.05;
-const triangleStart = new THREE.Vector3(0.5, 2.55, 0);
+const triangleStart = new THREE.Vector3(1.25, 2.55, 0);
 const balls = [];
 
 let whiteBall = new Ball(0.075, new THREE.Vector3(0, 2.55, -1.5));
@@ -254,6 +260,11 @@ function createTriangleBalls() {
             const pos = new THREE.Vector3(x, 2.55, z);
 
             const ball = new Ball(ballRadius, pos, ballTextures[index]);
+            if (index <= 8) {
+                ball.isSolid = true;
+            } else {
+                ball.isSolid = false;
+            }
 
             balls.push(ball);
             index++;
@@ -266,19 +277,28 @@ function createTriangleBalls() {
 //------------------------------//
 const textureLoader = new THREE.TextureLoader();
 const ballTextures = [];
+const texturePromises = [];
 
 for (let i = 1; i <= 15; i++) {
-    const texture = textureLoader.load(
-        `/models/billiards/textures/balls/ball${i}.png`
+    texturePromises.push(
+        new Promise((resolve) => {
+            textureLoader.load(
+                `/models/billiards/textures/balls/ball${i}.png`,
+                (texture) => {
+                    texture.encoding = THREE.sRGBEncoding;
+                    texture.generateMipmaps = false;
+                    texture.minFilter = THREE.LinearFilter;
+                    texture.magFilter = THREE.LinearFilter;
+                    resolve(texture);
+                }
+            );
+        })
     );
-    texture.encoding = THREE.sRGBEncoding;
-    texture.generateMipmaps = false;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    ballTextures.push(texture);
 }
-
-createTriangleBalls();
+Promise.all(texturePromises).then((textures) => {
+    ballTextures.push(...textures);
+    createTriangleBalls();
+});
 
 //------------------------------//
 // Ball-Table Collision Handler
@@ -298,10 +318,10 @@ function handleTableCollision(ball) {
     // X-Axis Collision
     if (ball.mesh.position.x - r < tableMinX) {
         ball.mesh.position.x = tableMinX + r;
-        ball.velocity.x = -ball.velocity.x * 0.9; // Opposite Direction + Minor Velocity
+        ball.velocity.x = -ball.velocity.x * 0.85; // Opposite Direction + Minor Velocity
     } else if (ball.mesh.position.x + r > tableMaxX) {
         ball.mesh.position.x = tableMaxX - r;
-        ball.velocity.x = -ball.velocity.x * 0.9;
+        ball.velocity.x = -ball.velocity.x * 0.85;
     }
 
     // Z-Axis Collision
@@ -334,21 +354,23 @@ function resolveCollision(ball1, ball2) {
     const radiusSum =
         ball1.geometry.parameters.radius + ball2.geometry.parameters.radius;
 
-    if (distance === 0) {
-        normal.set(1, 0, 0);
+    if (distance < 1e-6) {
+        distance = 1e-6;
     } else {
         normal.divideScalar(distance);
     }
 
     const overlap = radiusSum - distance;
     if (overlap > 0) {
+        // Sposta le palle per eliminare la sovrapposizione
         ball1.mesh.position.addScaledVector(normal, -overlap / 2);
         ball2.mesh.position.addScaledVector(normal, overlap / 2);
 
+        // Proiezioni delle velocità lungo la normale
         const v1n = normal.dot(ball1.velocity);
         const v2n = normal.dot(ball2.velocity);
 
-        const e = 0.8;
+        const e = 0.8; // coefficiente di restituzione
         const m1 = ball1.mass;
         const m2 = ball2.mass;
 
@@ -363,14 +385,11 @@ function resolveCollision(ball1, ball2) {
         ball1.velocity.addScaledVector(normal, v1nChange);
         ball2.velocity.addScaledVector(normal, v2nChange);
 
-        // Ball Rotations
-        // TO-DO: Update Comments
-        // Punto di contatto medio
+        // === Effetto rotazionale (spin) ===
         const contactPoint = new THREE.Vector3()
             .addVectors(ball1.mesh.position, ball2.mesh.position)
             .multiplyScalar(0.5);
 
-        // Leve vettoriali dal centro palla al punto di contatto
         const r1 = new THREE.Vector3().subVectors(
             contactPoint,
             ball1.mesh.position
@@ -380,14 +399,9 @@ function resolveCollision(ball1, ball2) {
             ball2.mesh.position
         );
 
-        // Impulso lineare scalare
         const impulseScalar = Math.abs(v1nChange) * m1;
-
-        // Calcolo impulso rotazionale proporzionale alla leva e impulso lineare
-        // Coefficiente di trasferimento spin arbitrario (0.2 come esempio)
         const spinTransferCoeff = 0.2;
 
-        // Impulso rotazionale per ogni palla (vettore)
         const angularImpulse1 = new THREE.Vector3()
             .crossVectors(r1, normal)
             .multiplyScalar(impulseScalar * spinTransferCoeff);
@@ -395,16 +409,54 @@ function resolveCollision(ball1, ball2) {
             .crossVectors(r2, normal)
             .multiplyScalar(impulseScalar * spinTransferCoeff);
 
-        // Aggiorna velocità angolare (spin)
         ball1.angularVelocity.add(angularImpulse1);
         ball2.angularVelocity.sub(angularImpulse2);
+
+        // === Effetto dello spin sulla direzione (deviazione) ===
+        const spinInfluenceCoeff = 0.05;
+
+        const spinEffect1 = new THREE.Vector3()
+            .crossVectors(ball1.angularVelocity, normal)
+            .multiplyScalar(spinInfluenceCoeff);
+        const spinEffect2 = new THREE.Vector3()
+            .crossVectors(ball2.angularVelocity, normal)
+            .multiplyScalar(spinInfluenceCoeff);
+
+        // Applichiamo solo X e Z, ignorando Y
+        spinEffect1.y = 0;
+        spinEffect2.y = 0;
+
+        ball1.velocity.add(spinEffect1);
+        ball2.velocity.sub(spinEffect2); // Opposto per coerenza
+
+        // Pulizia: forza le velocità fuori dall’asse del tavolo a 0
+        ball1.velocity.y = 0;
+        ball2.velocity.y = 0;
+    }
+}
+
+function updatePhysics(deltaTime) {
+    const substeps = 8;
+    const dt = deltaTime / substeps;
+
+    for (let i = 0; i < substeps; i++) {
+        balls.forEach((ball) => ball.update(dt));
+
+        // Ball-Ball collisions
+        for (let j = 0; j < balls.length; j++) {
+            for (let k = j + 1; k < balls.length; k++) {
+                if (areBallsColliding(balls[j], balls[k])) {
+                    resolveCollision(balls[j], balls[k]);
+                }
+            }
+        }
     }
 }
 
 //-----------------------------------//
 // Creating Pocket HitBoxes for score
 //-----------------------------------//
-const pocketRadius = 0.25;
+const pocketRadius = 0.18;
 
 const pockets = [];
 let score = 0;
@@ -557,7 +609,188 @@ function animateStickShot(callback) {
 // Adding Trajectory Line Stick-WhiteBall
 //----------------------------------------//
 
-// TO-DO //
+let aimLine, aimWhiteLine, aimTargetLine;
+
+// Definisci i limiti del tavolo come Box3
+const tableBox = new THREE.Box3(
+    new THREE.Vector3(tableMinX, 0, tableMinZ),
+    new THREE.Vector3(tableMaxX, 2.75, tableMaxZ) // Height doesn't matter
+);
+
+function updateAimLine() {
+    if (!stick || !whiteBall) return;
+
+    // Rimuove le vecchie linee
+    [aimLine, aimWhiteLine, aimTargetLine].forEach((line) => {
+        if (line) scene.remove(line);
+    });
+
+    const start = whiteBall.mesh.position
+        .clone()
+        .add(new THREE.Vector3(0, 0.035, 0));
+    const direction = new THREE.Vector3()
+        .subVectors(start, stick.position)
+        .normalize();
+    const points = [start];
+
+    // Trova la palla più vicina che verrà colpita (sfera-sfera)
+    let closestHit = null;
+    let minDistance = Infinity;
+
+    // Instead of using the raycaster, we are going to use the sphere-sphere collision detection
+    // This is because the raycaster is not accurate enough for this case
+    // We are going to iterate over all balls (except the white one) and check if they are within the stick's range
+    // We are looking for (c = center of the ball, r = sum of the radius whiteBall-target, l = vector start-sphere
+    // t_ca = distance over the radius over the orthogonal projection of the center of the sphere)
+    // d2 = minimum distance squared between center and radius
+    // if d2 > r^2 then the sphere is out of range (no collision)
+    // else, we compute t and the distance from the starting point on the surface
+    // if t < minDistance, it is saved as the closest hit
+
+    // This method is better due the fact that the raycaster is just a thin line, unable
+    // to detect collision with a sphere, while the sphere-sphere collision detection is
+    // able to detect collision with a sphere, even if it is not on the line of sight
+
+    balls.forEach((ball) => {
+        if (ball === whiteBall) return;
+
+        const c = ball.mesh.position.clone(); // centro palla bersaglio
+        const r =
+            ball.geometry.parameters.radius +
+            whiteBall.geometry.parameters.radius;
+
+        const l = new THREE.Vector3().subVectors(c, start);
+        const t_ca = l.dot(direction);
+        if (t_ca < 0) return;
+
+        const d2 = l.lengthSq() - t_ca * t_ca;
+        if (d2 > r * r) return;
+
+        const t_hc = Math.sqrt(r * r - d2);
+        const t = t_ca - t_hc;
+        if (t < 0) return;
+
+        const contactPoint = start
+            .clone()
+            .add(direction.clone().multiplyScalar(t));
+        if (t < minDistance) {
+            minDistance = t;
+            closestHit = { ball, point: contactPoint };
+        }
+    });
+
+    if (closestHit) {
+        const targetBall = closestHit.ball;
+        const collisionPoint = closestHit.point;
+        points.push(collisionPoint);
+
+        // === Fisica semplificata ===
+        const m1 = whiteBall.mass;
+        const m2 = targetBall.mass;
+        const e = 0.8;
+
+        const initialVelocity = direction.clone();
+        const normal = new THREE.Vector3()
+            .subVectors(targetBall.mesh.position, collisionPoint)
+            .normalize();
+
+        const v1n = normal.dot(initialVelocity);
+        const v2n = 0;
+
+        const v1nFinal =
+            (m1 * v1n + m2 * v2n - e * m2 * (v1n - v2n)) / (m1 + m2);
+        const v2nFinal =
+            (m1 * v1n + m2 * v2n + e * m1 * (v1n - v2n)) / (m1 + m2);
+
+        const v1nChange = v1nFinal - v1n;
+        const v2nChange = v2nFinal - v2n;
+
+        const whiteFinalVel = initialVelocity
+            .clone()
+            .addScaledVector(normal, v1nChange);
+        const targetFinalVel = normal.clone().multiplyScalar(v2nFinal);
+
+        whiteFinalVel.y = 0;
+        targetFinalVel.y = 0;
+
+        const scale = 0.5;
+
+        const whiteEnd = collisionPoint
+            .clone()
+            .add(whiteFinalVel.clone().multiplyScalar(scale));
+        const targetEnd = collisionPoint
+            .clone()
+            .add(targetFinalVel.clone().multiplyScalar(scale));
+
+        // Linea bianca (verde)
+        aimWhiteLine = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([
+                collisionPoint,
+                whiteEnd,
+            ]),
+            new THREE.LineBasicMaterial({ color: 0x00ff00 })
+        );
+        scene.add(aimWhiteLine);
+
+        // Linea bersaglio (blu)
+        aimTargetLine = new THREE.Line(
+            new THREE.BufferGeometry().setFromPoints([
+                collisionPoint,
+                targetEnd,
+            ]),
+            new THREE.LineBasicMaterial({ color: 0x0000ff })
+        );
+        scene.add(aimTargetLine);
+    } else {
+        // Nessuna palla colpita → calcolo bordo tavolo
+        const ray = new THREE.Ray(start.clone(), direction.clone());
+        const boundaryHit = new THREE.Vector3();
+
+        if (ray.intersectBox(tableBox, boundaryHit)) {
+            boundaryHit.y += 0.035;
+            points.push(boundaryHit);
+
+            const bounceDirection = direction.clone();
+            if (boundaryHit.x <= tableMinX || boundaryHit.x >= tableMaxX)
+                bounceDirection.x *= -1;
+            if (boundaryHit.z <= tableMinZ || boundaryHit.z >= tableMaxZ)
+                bounceDirection.z *= -1;
+
+            const reflectedEnd = boundaryHit
+                .clone()
+                .add(bounceDirection.multiplyScalar(0.5));
+            reflectedEnd.y += 0.035;
+            points.push(reflectedEnd);
+        } else {
+            const fallbackEnd = start
+                .clone()
+                .add(direction.clone().multiplyScalar(3));
+            fallbackEnd.y += 0.035;
+            points.push(fallbackEnd);
+        }
+    }
+
+    // Linea principale (rossa)
+    aimLine = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(points),
+        new THREE.LineBasicMaterial({ color: 0xff0000 })
+    );
+    scene.add(aimLine);
+}
+
+//--------------------------------------------//
+// Axis & Box Debugger (uncomment to use them)
+//--------------------------------------------//
+
+/*
+const boxHelper = new THREE.Box3Helper(tableBox, 0xffff00);
+scene.add(boxHelper);
+
+const axesHelper = new THREE.AxesHelper();
+axesHelper.position.y = 2.65;
+scene.add(axesHelper);
+
+*/
 
 //-----------------------//
 // Initialize Clock
@@ -571,21 +804,15 @@ const clock = new THREE.Clock();
 function animate() {
     const deltaTime = clock.getDelta();
 
+    updatePhysics(deltaTime);
     balls.forEach((ball) => ball.update(deltaTime));
-
-    for (let i = 0; i < balls.length; i++) {
-        for (let j = i + 1; j < balls.length; j++) {
-            if (areBallsColliding(balls[i], balls[j])) {
-                resolveCollision(balls[i], balls[j]);
-            }
-        }
-    }
 
     balls.forEach((ball) => {
         if (checkBallInPocket(ball) && ball !== whiteBall) {
             removeBall(ball);
             score++;
             console.log("Palla in Buca!! Il tuo punteggio: " + score);
+            console.log("La palla era Solid? " + ball.isSolid);
         }
     });
 
@@ -596,8 +823,17 @@ function animate() {
         }
     }
 
-    if (whiteBall.velocity.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.01) {
+    const allBallsStopped = balls.every(
+        (ball) => ball.velocity.distanceTo(new THREE.Vector3(0, 0, 0)) < 0.01
+    );
+
+    if (allBallsStopped) {
+        // Azzeriamo tutte le velocità
+        balls.forEach((ball) => ball.velocity.set(0, 0, 0));
+
+        // Ora possiamo aggiornare stecca e linea mira
         adjustStickPosition();
+        updateAimLine();
     }
 
     controls.update();
