@@ -4,50 +4,139 @@
         <meta charset="UTF-8" />
         <link rel="icon" type="image/svg+xml" href="/vite.svg" />
         <link rel="stylesheet" href="/src/style.css" />
+        <link
+            rel="stylesheet"
+            type="text/css"
+            href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css"
+        />
+
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Vite App</title>
     </head>
     <body>
         <canvas id="threejs"></canvas>
         <div
-            class="absolute top-2 right-1 grid grid-cols-2 gap-2 p-2 bg-gray-700 rounded-md scale-80"
+            class="fixed top-30 -right-0 flex flex-col items-end gap-2 p-2 bg-gray-700/50 rounded-md scale-80"
         >
-            <button
-                class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
-                id="reset-camera-btn"
+            <div
+                id="showHUD"
+                class="cursor-pointer w-full px-2 flex flex-row justify-between"
             >
-                Reset Camera
-            </button>
-            <button
-                class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
-                id="top-view-btn"
-            >
-                Top View POV
-            </button>
-            <button
-                class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
-                id="front-view-btn"
-            >
-                Front View POV
-            </button>
-            <button
-                class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
-                id="back-view-btn"
-            >
-                Back View POV
-            </button>
-            <button
-                class="cursor-pointer col-span-2 transition px-6 py-2 bg-red-500 rounded-lg text-white hover:bg-red-600"
-                id="ball-triangle-btn"
-            >
-                Reset Balls</button
-            ><button
-                class="cursor-pointer col-span-2 transition px-6 py-2 bg-green-500 rounded-lg text-white hover:bg-green-600"
-                id="dummy-test-btn"
-            >
-                Test a Shot!
-            </button>
+                <span class="text-white text-md font-medium">Options:</span>
+                <span class="cursor-pointer">❌</span>
+            </div>
+            <div id="button-container" class="grid grid-cols-2 gap-2 p-2">
+                <button
+                    class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
+                    id="reset-camera-btn"
+                >
+                    Reset Camera
+                </button>
+                <button
+                    class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
+                    id="top-view-btn"
+                >
+                    Top View POV
+                </button>
+                <button
+                    class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
+                    id="front-view-btn"
+                >
+                    Front View POV
+                </button>
+                <button
+                    class="cursor-pointer transition px-6 py-2 bg-blue-500 rounded-lg text-white hover:bg-blue-600"
+                    id="back-view-btn"
+                >
+                    Back View POV
+                </button>
+                <button
+                    class="cursor-pointer col-span-2 transition px-6 py-2 rounded-lg text-white bg-blue-500 hover:bg-blue-600"
+                    id="dummy-test-btn"
+                >
+                    Test a Shot!
+                </button>
+                <button
+                    class="cursor-pointer col-span-2 transition px-6 py-2 bg-green-500 rounded-lg text-white hover:bg-green-600"
+                    id="vfx-disable-btn"
+                >
+                    VFX Enabled
+                </button>
+                <button
+                    class="cursor-pointer col-span-2 transition px-6 py-2 bg-red-500 rounded-lg text-white hover:bg-red-600"
+                    id="ball-triangle-btn"
+                >
+                    Reset Balls
+                </button>
+            </div>
         </div>
+        <div>
+            <div
+                class="rounded-md p-2 bg-gray-600/50 absolute top-2 left-2 text-white font-medium"
+                id="player-type"
+            ></div>
+
+            <div
+                class="absolute top-15 left-2 flex flex-col text-white bg-gray-600/50 p-2 italic text-sm gap-2 max-w-[50ch] rounded-md"
+            >
+                <div
+                    id="showControlOptions"
+                    class="cursor-pointer w-full flex flex-row justify-between gap-2"
+                >
+                    <span class="text-white text-md font-medium"
+                        >Key Bindings:
+                    </span>
+                    <span class="not-italic"> ❌ </span>
+                </div>
+                <div class="flex flex-col gap-1" id="bindingPanel">
+                    <span class="text-md font-medium">Stick Controls:</span>
+                    <ul class="flex flex-col gap-1">
+                        <li>
+                            Arrow Right (→): Move Stick to the right direction
+                        </li>
+                        <li>
+                            Arrow Left (←): Move Stick to the left direction
+                        </li>
+                    </ul>
+                    <span>-----------</span>
+                    <span class="text-md font-medium">Camera Controls:</span>
+                    <ul class="flex flex-col gap-1">
+                        <li>
+                            Left Mouse Drag: Move the camera around the table
+                        </li>
+                        <li>
+                            Right Mouse Drag: Move the camera around the
+                            environment
+                        </li>
+                        <li>
+                            <strong>Note:</strong> Feel free to use the panel on
+                            the right section of the screen in order to play
+                            with different camera angles
+                        </li>
+                    </ul>
+                    <span>-----------</span>
+                    <span class="text-md font-medium">How to play:</span>
+                    <ul class="flex flex-col gap-1">
+                        <li>Press Enter: Shot</li>
+                        <li>
+                            Click on "Test a Shot!" button: Try a shot with a
+                            randomized strenght and direction (could be
+                            anywhere!)
+                        </li>
+                    </ul>
+                    <span>-----------</span>
+                    <p>
+                        <strong>TIP:</strong> Let the camera complete its
+                        transition before trying to move the visual
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <script type="module" src="/src/main.js"></script>
+        <script
+            type="text/javascript"
+            src="https://cdn.jsdelivr.net/npm/toastify-js"
+        ></script>
     </body>
 </html>

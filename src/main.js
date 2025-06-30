@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { Pane } from "tweakpane";
 
 //--------------------------------------//
 // Creating a scene, camera and renderer
@@ -21,8 +25,8 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Soft and Realistic Shadows
+renderer.outputEncoding = THREE.sRGBEncoding; // Colors more accurate
 
 //-----------------------//
 // Creating OrbitControls
@@ -63,16 +67,16 @@ loader.load("/models/billiards/scene.gltf", (gltf) => {
     });
 
     scene.add(table);
-    console.log("Modello del tavolo caricato!");
+    console.log("Table Model Loaded Successfully!");
 });
 
 // --------------------------//
 // Adding Lights to the scene
 // --------------------------//
-const ambientLight = new THREE.AmbientLight("white", 0.075);
+const ambientLight = new THREE.AmbientLight(0x2c2c2c, 0.05);
 scene.add(ambientLight);
 
-const spotLight = new THREE.SpotLight("white", 50);
+const spotLight = new THREE.SpotLight(0xfff2e5, 50);
 spotLight.position.set(0, 5.75, 0);
 spotLight.angle = Math.PI / 2.75;
 spotLight.penumbra = 0.7;
@@ -83,9 +87,8 @@ spotLight.castShadow = true;
 spotLight.shadow.bias = -0.0005;
 spotLight.shadow.radius = 4;
 
-spotLight.shadow.mapSize.width = 2048;
-spotLight.shadow.mapSize.height = 2048;
-
+spotLight.shadow.mapSize.width = 1024;
+spotLight.shadow.mapSize.height = 1024;
 scene.add(spotLight);
 
 // --------------------------//
@@ -95,6 +98,49 @@ window.addEventListener("resize", () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
+});
+
+// HUD Button
+let isHUDShowed = true;
+
+document.getElementById("showHUD").addEventListener("click", () => {
+    const buttonContainer = document.getElementById("button-container");
+    const showHUD = document.getElementById("showHUD");
+    const textSpan = showHUD.querySelector("span:first-child");
+    const iconSpan = showHUD.querySelector("span:last-child");
+
+    if (isHUDShowed) {
+        buttonContainer.style.display = "none";
+        textSpan.textContent = "Options: ";
+        iconSpan.textContent = "👁";
+    } else {
+        buttonContainer.style.display = "grid";
+        textSpan.textContent = "Options: ";
+        iconSpan.textContent = "❌";
+    }
+
+    isHUDShowed = !isHUDShowed;
+});
+
+// Key Binding Button
+let areBindingsShown = true;
+document.getElementById("showControlOptions").addEventListener("click", () => {
+    const panelContainer = document.getElementById("bindingPanel");
+    const showControlOptions = document.getElementById("showControlOptions");
+    const textSpan = showControlOptions.querySelector("span:first-child");
+    const iconSpan = showControlOptions.querySelector("span:last-child");
+
+    if (areBindingsShown) {
+        panelContainer.style.display = "none";
+        textSpan.textContent = "Key Bindings: ";
+        iconSpan.textContent = "👁";
+    } else {
+        panelContainer.style.display = "flex";
+        textSpan.textContent = "Key Bindings: ";
+        iconSpan.textContent = "❌";
+    }
+
+    areBindingsShown = !areBindingsShown;
 });
 
 // Camera Buttons
@@ -115,19 +161,24 @@ document.getElementById("top-view-btn").addEventListener("click", () => {
 });
 
 document.getElementById("front-view-btn").addEventListener("click", () => {
-    cameraTargetPosition.set(0, 4, 5);
+    cameraTargetPosition.set(0, 4.5, 4.5);
     controls.target.set(0, 2.5, 0);
     isCameraMoving = true;
 });
 
 document.getElementById("back-view-btn").addEventListener("click", () => {
-    cameraTargetPosition.set(0, 4, -5);
+    cameraTargetPosition.set(0, 4.5, -4.5);
     controls.target.set(0, 2.5, 0);
     isCameraMoving = true;
 });
 
 // Resetting Balls Triangle
 document.getElementById("ball-triangle-btn").addEventListener("click", () => {
+    resetMatch();
+});
+
+// Helper Function to reset the entire match
+function resetMatch() {
     // 1 - Removing all the ball from the scene
     balls.forEach((ball) => {
         scene.remove(ball.mesh);
@@ -143,20 +194,72 @@ document.getElementById("ball-triangle-btn").addEventListener("click", () => {
 
     // 4 - Resetting Stick Angle
     stickAngle = Math.PI / 2;
+
+    playerType = null;
+    opponentType = null;
+    playerScore = 0;
+    opponentScore = 0;
+    currentPlayer = 1;
+
+    ballsPocketedThisTurn = [];
+
+    shotTaken = false;
+    turnEvaluated = false;
+}
+
+// Disable / Enable VFX Effects
+let vfxEnabled = true;
+
+document.getElementById("vfx-disable-btn").addEventListener("click", () => {
+    vfxEnabled = !vfxEnabled;
+
+    // Shadows ON/OFF
+    renderer.shadowMap.enabled = vfxEnabled;
+    spotLight.castShadow = vfxEnabled;
+
+    // Changing the intensity of the lights
+    ambientLight.intensity = vfxEnabled ? 0.05 : 2.5;
+    spotLight.intensity = vfxEnabled ? 50 : 35;
+
+    // POCKET LIGHTS (CAUSE OF LAG)
+    if (vfxEnabled) {
+        createLedLights();
+    } else {
+        ledLights.forEach((led) => {
+            scene.remove(led);
+        });
+        ledLights.length = 0;
+    }
+
+    console.log(`VFX Effects ${vfxEnabled ? "enabled" : "disabled"}`);
+
+    const vfxButton = document.getElementById("vfx-disable-btn");
+
+    vfxButton.className = vfxEnabled
+        ? "cursor-pointer col-span-2 transition px-6 py-2 bg-green-500 rounded-lg text-white hover:bg-green-600"
+        : "cursor-pointer col-span-2 transition px-6 py-2 bg-red-500 rounded-lg text-white hover:bg-red-600";
+
+    vfxButton.innerText = vfxEnabled ? "VFX Enabled" : "VFX Disabled";
 });
 
 // "Take a Shot" Dummy Test:
 // Shoots the white ball to a random position by setting its velocity
 document.getElementById("dummy-test-btn").addEventListener("click", () => {
-    const randomSpeed = 20;
+    const randomSpeed = 7;
     const vx = (Math.random() * 2 - 1) * randomSpeed;
     const vz = (Math.random() * 2 - 1) * randomSpeed;
     whiteBall.velocity.set(vx, 0, vz);
+
+    shotTaken = true;
+    turnEvaluated = false;
 });
 
-window.addEventListener("keydown", (event) => {
-    const rotationSpeed = 0.05;
+let stickForce = 2.5;
+let rotationSpeed = 0.025;
+let shotTaken = false;
+let turnEvaluated = false;
 
+window.addEventListener("keydown", (event) => {
     // Rotating the Cue Stick clockwise
     if (event.key === "ArrowLeft") {
         stickAngle -= rotationSpeed;
@@ -175,8 +278,11 @@ window.addEventListener("keydown", (event) => {
                     new THREE.Vector3(stick.position.x, 2.55, stick.position.z)
                 );
                 direction.normalize();
-                let force = direction.clone().multiplyScalar(3.5); // 3.5 is the force applied to the ball by the shot (simulating a mid-powerful shot)
+                let force = direction.clone().multiplyScalar(stickForce); // StickForce is the force applied to the ball by the shot (simulating a mid-powerful shot)
                 whiteBall.velocity = force;
+
+                shotTaken = true;
+                turnEvaluated = false;
             });
         } else {
             console.log("Ball is already in motion");
@@ -189,15 +295,12 @@ window.addEventListener("keydown", (event) => {
 // ------------------------------ //
 class Ball {
     constructor(radius, initialPosition, texture = null) {
-        this.geometry = new THREE.SphereGeometry(radius, 32, 32);
-
+        this.geometry = new THREE.SphereGeometry(radius, 16, 16);
         this.material = new THREE.MeshStandardMaterial({
             metalness: 0.5,
             roughness: 0.2,
             map: texture,
         });
-
-        this.material.toneMapped = false;
         this.mesh = new THREE.Mesh(this.geometry, this.material);
 
         this.mesh.position.copy(initialPosition);
@@ -207,13 +310,16 @@ class Ball {
         this.velocity = new THREE.Vector3(0, 0, 0);
         this.angularVelocity = new THREE.Vector3(0, 0, 0);
 
-        this.mass = 0.21;
+        this.isPocketed = false;
+        this.isBlackBall = false;
         this.isSolid = false;
+        this.mass = 0.21; // 210g
         scene.add(this.mesh);
     }
 
     update(deltaTime) {
         this.mesh.position.add(this.velocity.clone().multiplyScalar(deltaTime));
+
         handleTableCollision(this);
 
         let spinScale = 1.2; // Incrementing this value will increase the spin of the ball
@@ -224,15 +330,16 @@ class Ball {
                     .crossVectors(this.velocity, new THREE.Vector3(0, 1, 0))
                     .divideScalar(this.geometry.parameters.radius)
             )
-            .multiplyScalar(spinScale);
+            .multiplyScalar(spinScale); // Tanget Velocity divided with radius and multiplied by spinScale
 
+        // We apply that to the mesh
         this.mesh.rotation.x += this.angularVelocity.x * deltaTime;
         this.mesh.rotation.y += this.angularVelocity.y * deltaTime;
         this.mesh.rotation.z += this.angularVelocity.z * deltaTime;
 
-        // Simulates friction by reducing the velocity by 1.75% each frame
-        const dampingFactorPerSecond = 0.8; // questo va ridefinito meglio
-        const damping = Math.pow(dampingFactorPerSecond, deltaTime); // dove deltaTime è del substep
+        // Simulates friction by reducing the velocity by 2% each frame
+        const dampingFactorPerSecond = 0.8; // Can be redifined to change the friction level
+        const damping = Math.pow(dampingFactorPerSecond, deltaTime); // deltaTime refers to the substeps
         this.velocity.multiplyScalar(damping);
         this.angularVelocity.multiplyScalar(damping);
     }
@@ -246,7 +353,7 @@ const spacing = ballRadius * 2.05;
 const triangleStart = new THREE.Vector3(1.25, 2.55, 0);
 const balls = [];
 
-let whiteBall = new Ball(0.075, new THREE.Vector3(0, 2.55, -1.5));
+let whiteBall = new Ball(ballRadius, new THREE.Vector3(0, 2.55, -1.5));
 balls.push(whiteBall);
 
 function createTriangleBalls() {
@@ -257,10 +364,13 @@ function createTriangleBalls() {
         for (let col = 0; col <= row; col++) {
             const z = triangleStart.x + (row * spacing * Math.sqrt(3)) / 2;
             const x = triangleStart.z + (col - row / 2) * spacing;
-            const pos = new THREE.Vector3(x, 2.55, z);
 
+            const pos = new THREE.Vector3(x, 2.55, z);
             const ball = new Ball(ballRadius, pos, ballTextures[index]);
-            if (index <= 8) {
+
+            if (index === 7) {
+                ball.isBlackBall = true;
+            } else if (index < 8) {
                 ball.isSolid = true;
             } else {
                 ball.isSolid = false;
@@ -346,6 +456,8 @@ function areBallsColliding(ball1, ball2) {
 }
 
 function resolveCollision(ball1, ball2) {
+    // First we want to compute the standard velocity:
+    // Normal, Distances, momentum conservation and collysion dynamics
     const normal = new THREE.Vector3().subVectors(
         ball2.mesh.position,
         ball1.mesh.position
@@ -361,16 +473,16 @@ function resolveCollision(ball1, ball2) {
     }
 
     const overlap = radiusSum - distance;
+
+    // If the balls are overlapping
     if (overlap > 0) {
-        // Sposta le palle per eliminare la sovrapposizione
         ball1.mesh.position.addScaledVector(normal, -overlap / 2);
         ball2.mesh.position.addScaledVector(normal, overlap / 2);
 
-        // Proiezioni delle velocità lungo la normale
         const v1n = normal.dot(ball1.velocity);
         const v2n = normal.dot(ball2.velocity);
 
-        const e = 0.8; // coefficiente di restituzione
+        const e = 0.8; // Useful to simulate a partial momentum conservation
         const m1 = ball1.mass;
         const m2 = ball2.mass;
 
@@ -385,7 +497,8 @@ function resolveCollision(ball1, ball2) {
         ball1.velocity.addScaledVector(normal, v1nChange);
         ball2.velocity.addScaledVector(normal, v2nChange);
 
-        // === Effetto rotazionale (spin) ===
+        // Next we want to compute the spin applied to each ball
+        // and the effect this is going to have on the final trajectory
         const contactPoint = new THREE.Vector3()
             .addVectors(ball1.mesh.position, ball2.mesh.position)
             .multiplyScalar(0.5);
@@ -412,7 +525,7 @@ function resolveCollision(ball1, ball2) {
         ball1.angularVelocity.add(angularImpulse1);
         ball2.angularVelocity.sub(angularImpulse2);
 
-        // === Effetto dello spin sulla direzione (deviazione) ===
+        // Spin effect on the trajectory
         const spinInfluenceCoeff = 0.05;
 
         const spinEffect1 = new THREE.Vector3()
@@ -422,24 +535,23 @@ function resolveCollision(ball1, ball2) {
             .crossVectors(ball2.angularVelocity, normal)
             .multiplyScalar(spinInfluenceCoeff);
 
-        // Applichiamo solo X e Z, ignorando Y
+        // Nullify the Y-Component
         spinEffect1.y = 0;
         spinEffect2.y = 0;
 
         ball1.velocity.add(spinEffect1);
-        ball2.velocity.sub(spinEffect2); // Opposto per coerenza
+        ball2.velocity.sub(spinEffect2);
 
-        // Pulizia: forza le velocità fuori dall’asse del tavolo a 0
         ball1.velocity.y = 0;
         ball2.velocity.y = 0;
     }
 }
 
+let subSteps = 4;
 function updatePhysics(deltaTime) {
-    const substeps = 8;
-    const dt = deltaTime / substeps;
+    const dt = deltaTime / subSteps;
 
-    for (let i = 0; i < substeps; i++) {
+    for (let i = 0; i < subSteps; i++) {
         balls.forEach((ball) => ball.update(dt));
 
         // Ball-Ball collisions
@@ -456,10 +568,9 @@ function updatePhysics(deltaTime) {
 //-----------------------------------//
 // Creating Pocket HitBoxes for score
 //-----------------------------------//
-const pocketRadius = 0.18;
+const pocketRadius = 0.22;
 
 const pockets = [];
-let score = 0;
 const pocketPositions = [
     new THREE.Vector3(tableMinX + 0.05, 2.45, tableMinZ + 0.05), // TOP RIGHT
     new THREE.Vector3(tableMinX + 0.05, 2.45, tableMaxZ - 0.05), // TOP LEFT
@@ -470,52 +581,340 @@ const pocketPositions = [
 ];
 
 pocketPositions.forEach((pos) => {
-    const pocket = {
-        position: pos,
-        radius: pocketRadius,
-    };
+    const geometry = new THREE.SphereGeometry(pocketRadius, 16, 16);
+    const material = new THREE.MeshBasicMaterial({
+        color: "white",
+        wireframe: true,
+        visible: false,
+    });
+    const pocket = new THREE.Mesh(geometry, material);
+
+    pocket.position.copy(pos);
     pockets.push(pocket);
+    scene.add(pocket);
 });
 
+// Helper functions to check if a ball is in a pocket (true/false)
 function checkBallInPocket(ball) {
     for (let pocket of pockets) {
         const dist = ball.mesh.position.distanceTo(pocket.position);
-        if (dist < ball.geometry.parameters.radius + pocket.radius) {
+        if (dist < ball.geometry.parameters.radius + pocketRadius) {
             return true;
         }
     }
     return false;
 }
 
-function removeBall(ball) {
-    scene.remove(ball.mesh);
-    const index = balls.indexOf(ball);
-    if (index > -1) {
-        balls.splice(index, 1);
+// Main core function to handle ball pocketed
+// Implementing foul, player type and score
+let currentPlayerScore = 0;
+let ballsPocketedThisTurn = [];
+function handleBallPocketed(ball) {
+    if (ball.isPocketed) return;
+
+    // Case 1: White Ball Pocketed
+    if (
+        ball === whiteBall &&
+        (!playerType || ballsPocketedThisTurn.length === 0)
+    ) {
+        Toastify({
+            text:
+                `❌ Faul: \nPlayer ${currentPlayer} pocketed the white ball! \nPlayer ` +
+                (currentPlayer === 1 ? 2 : 1) +
+                " now plays",
+            duration: 3000,
+            gravity: "bottom",
+            position: "left",
+            style: {
+                background: "linear-gradient(to right, red, #121212)",
+                borderRadius: "8px",
+                fontWeight: "bold",
+            },
+        }).showToast();
+
+        whiteBall.mesh.position.set(0, 2.55, -1.5);
+        whiteBall.velocity.set(0, 0, 0);
+
+        return;
+    } else if (ball === whiteBall && playerType) {
+        Toastify({
+            text:
+                `❌ Faul: \nPlayer ${currentPlayer} pocketed the white ball! \nPlayer ` +
+                (currentPlayer === 1 ? 2 : 1) +
+                " now plays",
+            duration: 3000,
+            gravity: "bottom",
+            position: "left",
+            style: {
+                background: "linear-gradient(to right, red, #121212)",
+                borderRadius: "8px",
+                fontWeight: "bold",
+            },
+        }).showToast();
+
+        whiteBall.mesh.position.set(0, 2.55, -1.5);
+        whiteBall.velocity.set(0, 0, 0);
+
+        ballsPocketedThisTurn.push({ type: "whiteBall", foul: true });
+        return;
     }
+
+    const currentPlayerScore =
+        currentPlayer === 1 ? playerScore : opponentScore;
+
+    // 8-Black Ball Pocketed Handling
+    if (ball.isBlackBall && currentPlayerScore < 7) {
+        alert(
+            "Player " +
+                currentPlayer +
+                " loses due pocketing 8-Black Ball \nPlayer " +
+                (currentPlayer === 1 ? 2 : 1) +
+                " wins!"
+        );
+        resetMatch();
+        return;
+    } else if (ball.isBlackBall && currentPlayerScore === 7) {
+        alert(
+            "Player " + currentPlayer + " pocketed the 8-Black Ball and wins!"
+        );
+        resetMatch();
+        return;
+    }
+
+    ball.isPocketed = true;
+    ball.velocity.set(0, 0, 0);
+    ball.angularVelocity.set(0, 0, 0);
+
+    ballsPocketedThisTurn.push({
+        ball: ball,
+        type: ball.isSolid ? "Solid" : "Stripe",
+        isBlackBall: ball.isBlackBall,
+        foul: false,
+    });
+
+    // Case 2: First Shot Ball Pocketed
+    if (playerType === null && typeof ball.isSolid === "boolean") {
+        if (currentPlayer === 1) {
+            playerType = ball.isSolid ? "Solid" : "Stripe";
+            opponentType = ball.isSolid ? "Stripe" : "Solid";
+        } else {
+            playerType = ball.isSolid ? "Stripe" : "Solid";
+            opponentType = ball.isSolid ? "Solid" : "Stripe";
+        }
+
+        Toastify({
+            text: `🎱 Teams have been decided! 🎱\nPlayer 1: ${playerType.toUpperCase()} \nPlayer 2: ${opponentType.toUpperCase()}`,
+            duration: 3000,
+            gravity: "bottom",
+            position: "right",
+            style: {
+                background: "linear-gradient(to right, #764ba2, #121212)",
+                borderRadius: "8px",
+                fontWeight: "bold",
+            },
+        }).showToast();
+
+        console.log("🧩 Giocatore 1:", playerType.toUpperCase());
+        console.log("🧩 Giocatore 2:", opponentType.toUpperCase());
+
+        updatePlayerTypeUI?.();
+    }
+
+    // Update pocketed ball position (let it fall into the canister)
+    ball.targetPosition = new THREE.Vector3(
+        ball.mesh.position.x,
+        2.1,
+        ball.mesh.position.z
+    );
+
+    ball.update = function (deltaTime) {
+        this.mesh.position.lerp(this.targetPosition, 0.005);
+    };
 }
 
-//--------------------------------------------------//
-// Debugger for Pockets (uncomment to see hitboxes)
-//--------------------------------------------------//
+// Helper Function to notify about score
+function updateScore() {
+    Toastify({
+        text: `📊 Score Update: \nPlayer 1 (${
+            playerType || "TBD"
+        }): ${playerScore} \nPlayer 2 (${
+            opponentType || "TBD"
+        }): ${opponentScore}`,
+        duration: 3000,
+        gravity: "bottom",
+        position: "right",
+        style: {
+            background: "linear-gradient(to right, #667eea, #121212)",
+            borderRadius: "8px",
+            fontWeight: "bold",
+        },
+    }).showToast();
+}
 
-/*
-const debugPocketMeshes = [];
+function evaluateTurnEnd() {
+    let shouldKeepTurn = false;
+    let hasFoul = false;
+    let myPoints = 0;
+    let opponentPoints = 0;
+    let isFirstTurn = playerType === null;
 
-pocketPositions.forEach((pos) => {
-    const geometry = new THREE.SphereGeometry(pocketRadius, 16, 16);
-    const material = new THREE.MeshBasicMaterial({
-        color: 0xff0000,
-        wireframe: true,
-        opacity: 0.5,
-        transparent: true,
-    });
-    const sphere = new THREE.Mesh(geometry, material);
-    sphere.position.copy(pos);
-    scene.add(sphere);
-    debugPocketMeshes.push(sphere);
-});
-*/
+    // No balls pocketed -> Turn Ends
+    if (ballsPocketedThisTurn.length === 0) {
+        shouldKeepTurn = false;
+        Toastify({
+            text: `No balls pocketed. Turn ends.`,
+            duration: 2000,
+            gravity: "bottom",
+            position: "left",
+            style: {
+                background: "linear-gradient(to right, #666, #121212)",
+                borderRadius: "8px",
+            },
+        }).showToast();
+    } else {
+        // Checks for White Ball Foul
+        const hasWhiteBallFoul = ballsPocketedThisTurn.some(
+            (ball) => ball.type === "whiteBall"
+        );
+
+        if (hasWhiteBallFoul) {
+            hasFoul = true;
+            shouldKeepTurn = false;
+        } else {
+            // Filters non-white balls
+            const coloredBalls = ballsPocketedThisTurn.filter(
+                (ball) => ball.type !== "whiteBall"
+            );
+
+            if (coloredBalls.length > 0) {
+                // FIRST TURN: Define Player Type
+                if (isFirstTurn) {
+                    const firstBall = coloredBalls[0];
+
+                    if (currentPlayer === 1) {
+                        playerType = firstBall.type;
+                        opponentType =
+                            firstBall.type === "Solid" ? "Stripe" : "Solid";
+                    } else {
+                        playerType =
+                            firstBall.type === "Solid" ? "Stripe" : "Solid";
+                        opponentType = firstBall.type;
+                    }
+
+                    Toastify({
+                        text: `🎱 Teams decided! Player 1: ${playerType.toUpperCase()} | Player 2: ${opponentType.toUpperCase()}`,
+                        duration: 3000,
+                        gravity: "bottom",
+                        position: "right",
+                        style: {
+                            background:
+                                "linear-gradient(to right, #764ba2, #121212)",
+                            borderRadius: "8px",
+                            fontWeight: "bold",
+                        },
+                    }).showToast();
+
+                    updatePlayerTypeUI?.();
+                }
+
+                const currentPlayerType =
+                    currentPlayer === 1 ? playerType : opponentType;
+
+                let myBalls = 0;
+                let wrongBalls = 0;
+
+                coloredBalls.forEach((ball) => {
+                    if (ball.type === currentPlayerType) {
+                        myBalls++;
+                        myPoints++;
+                    } else {
+                        wrongBalls++;
+                        opponentPoints++;
+                    }
+                });
+
+                if (currentPlayer === 1) {
+                    playerScore += myPoints;
+                    opponentScore += opponentPoints;
+                } else {
+                    opponentScore += myPoints;
+                    playerScore += opponentPoints;
+                }
+
+                // FAUL for wrong pocketed balls
+                if (!isFirstTurn && wrongBalls > 0) {
+                    hasFoul = true;
+                    shouldKeepTurn = false;
+
+                    let message = `❌ FOUL! Player ${currentPlayer} pocketed wrong ball(s)`;
+                    if (myPoints > 0) {
+                        message += `\n+${myPoints} points to you, +${opponentPoints} points to opponent`;
+                    } else {
+                        message += `\n+${opponentPoints} points to opponent`;
+                    }
+
+                    Toastify({
+                        text: message,
+                        duration: 3000,
+                        gravity: "bottom",
+                        position: "left",
+                        style: {
+                            background:
+                                "linear-gradient(to right, #ff416c, #121212)",
+                            borderRadius: "8px",
+                            fontWeight: "bold",
+                        },
+                    }).showToast();
+                } else {
+                    shouldKeepTurn = true;
+
+                    let message = `✅ Player ${currentPlayer} continues! (+${myPoints} points)`;
+                    if (opponentPoints > 0) {
+                        message += `\n+${opponentPoints} points to opponent!`;
+                    }
+
+                    Toastify({
+                        text: message,
+                        duration: 3000,
+                        gravity: "bottom",
+                        position: "right",
+                        style: {
+                            background:
+                                "linear-gradient(to right, #00b09b, #121212)",
+                            borderRadius: "8px",
+                            fontWeight: "bold",
+                        },
+                    }).showToast();
+                }
+            }
+        }
+    }
+
+    // Turn Switches if necessary
+    if (!shouldKeepTurn) {
+        currentPlayer = currentPlayer === 1 ? 2 : 1;
+
+        let turnMessage = `🔄 Player ${currentPlayer}'s turn`;
+        if (hasFoul) {
+            turnMessage = `🔄 Player ${currentPlayer}'s turn (after foul)`;
+        }
+
+        Toastify({
+            text: turnMessage,
+            duration: 2000,
+            gravity: "top",
+            position: "center",
+            style: {
+                background: "linear-gradient(to right, #1d6eb4, #121212)",
+                borderRadius: "8px",
+                fontWeight: "bold",
+            },
+        }).showToast();
+    }
+
+    updateScore();
+    ballsPocketedThisTurn = [];
+}
 
 //---------------------------//
 // Adding Stick to the scene
@@ -550,7 +949,7 @@ function adjustStickPosition() {
     // Stick-WhiteBall Vector
     const direction = new THREE.Vector3();
     direction.subVectors(center, stick.position);
-    direction.y = 0; // Ignora altezza per rotazione solo sull'asse Y
+    direction.y = 0; // We ignore Y-Axis, we want to rotate around it
     direction.normalize();
 
     const angleY = Math.atan2(direction.x, direction.z);
@@ -567,38 +966,31 @@ function adjustStickPosition() {
 // Adding Cue Stick "Animation" for the shoot
 //--------------------------------------------//
 function animateStickShot(callback) {
+    // Setting up durations params
     const duration = 150;
     const retreatDelay = 75;
     const retreatDuration = 150;
 
+    // Initial/Final pos of the stick
     const start = -1.75;
     const end = -1.5;
 
     const startTime = performance.now();
 
     function animateForward(now) {
+        // Compute the progress of the animation with elapsed time
+        // Updating the stick pos
         const elapsed = now - startTime;
         const t = Math.min(elapsed / duration, 1);
         stickRadius = start + (end - start) * t;
 
         if (t < 1) {
-            requestAnimationFrame(animateForward);
+            requestAnimationFrame(animateForward); // Animation not ended yet
         } else {
-            if (callback) callback(); // 💥 Esegui qui la forza, al momento dell'impatto
-            setTimeout(() => {
-                const retreatStart = performance.now();
-                function animateBackward(nowRetreat) {
-                    const elapsedBack = nowRetreat - retreatStart;
-                    const tBack = Math.min(elapsedBack / retreatDuration, 1);
-                    stickRadius = end + (start - end) * tBack;
-                    if (tBack < 1) {
-                        requestAnimationFrame(animateBackward);
-                    } else {
-                        stickRadius = start;
-                    }
-                }
-                requestAnimationFrame(animateBackward);
-            }, retreatDelay);
+            // Once the animation is done, we start the retreat
+            // In order to let the stick go back to its initial pos
+            if (callback) callback();
+            stickRadius = start;
         }
     }
 
@@ -611,7 +1003,7 @@ function animateStickShot(callback) {
 
 let aimLine, aimWhiteLine, aimTargetLine;
 
-// Definisci i limiti del tavolo come Box3
+// TableBox (useful for bouncing trajectory lines on the table edges)
 const tableBox = new THREE.Box3(
     new THREE.Vector3(tableMinX, 0, tableMinZ),
     new THREE.Vector3(tableMaxX, 2.75, tableMaxZ) // Height doesn't matter
@@ -620,11 +1012,12 @@ const tableBox = new THREE.Box3(
 function updateAimLine() {
     if (!stick || !whiteBall) return;
 
-    // Rimuove le vecchie linee
+    // Get rid of old aimLines
     [aimLine, aimWhiteLine, aimTargetLine].forEach((line) => {
         if (line) scene.remove(line);
     });
 
+    // Aim Direction
     const start = whiteBall.mesh.position
         .clone()
         .add(new THREE.Vector3(0, 0.035, 0));
@@ -633,58 +1026,61 @@ function updateAimLine() {
         .normalize();
     const points = [start];
 
-    // Trova la palla più vicina che verrà colpita (sfera-sfera)
+    // Closest ball that will be hit (ball-ball collision)
     let closestHit = null;
     let minDistance = Infinity;
 
-    // Instead of using the raycaster, we are going to use the sphere-sphere collision detection
-    // This is because the raycaster is not accurate enough for this case
-    // We are going to iterate over all balls (except the white one) and check if they are within the stick's range
-    // We are looking for (c = center of the ball, r = sum of the radius whiteBall-target, l = vector start-sphere
-    // t_ca = distance over the radius over the orthogonal projection of the center of the sphere)
-    // d2 = minimum distance squared between center and radius
-    // if d2 > r^2 then the sphere is out of range (no collision)
-    // else, we compute t and the distance from the starting point on the surface
-    // if t < minDistance, it is saved as the closest hit
+    // Simulates collisions between balls, checks if the stick and a ball
+    // will be so close to hit each other, if so we save it
 
-    // This method is better due the fact that the raycaster is just a thin line, unable
-    // to detect collision with a sphere, while the sphere-sphere collision detection is
-    // able to detect collision with a sphere, even if it is not on the line of sight
-
+    // targetCenter = center of the target ball
+    // collisionRadius = sum of the radius (ball - ball)
+    // toTarget = White Ball Vector
+    // projectionLength = Projection of the shot
+    // closestDistSq = Squared distance between the stick and the target ball
+    // collisionDist = Distance start-contact
     balls.forEach((ball) => {
         if (ball === whiteBall) return;
 
-        const c = ball.mesh.position.clone(); // centro palla bersaglio
-        const r =
+        const targetCenter = ball.mesh.position.clone();
+        const collisionRadiusSum =
             ball.geometry.parameters.radius +
             whiteBall.geometry.parameters.radius;
 
-        const l = new THREE.Vector3().subVectors(c, start);
-        const t_ca = l.dot(direction);
-        if (t_ca < 0) return;
+        const toTargetVec = new THREE.Vector3().subVectors(targetCenter, start);
+        const projectionLength = toTargetVec.dot(direction);
 
-        const d2 = l.lengthSq() - t_ca * t_ca;
-        if (d2 > r * r) return;
+        // Behind the stick case
+        if (projectionLength < 0) return;
 
-        const t_hc = Math.sqrt(r * r - d2);
-        const t = t_ca - t_hc;
-        if (t < 0) return;
+        const closestDistSq =
+            toTargetVec.lengthSq() - projectionLength * projectionLength;
+
+        // Too far -> nothing happens
+        if (closestDistSq > collisionRadiusSum * collisionRadiusSum) return;
+
+        const halfChord = Math.sqrt(
+            collisionRadiusSum * collisionRadiusSum - closestDistSq
+        );
+        const collisionDist = projectionLength - halfChord;
+        if (collisionDist < 0) return;
 
         const contactPoint = start
             .clone()
-            .add(direction.clone().multiplyScalar(t));
-        if (t < minDistance) {
-            minDistance = t;
+            .add(direction.clone().multiplyScalar(collisionDist));
+
+        if (collisionDist < minDistance) {
+            minDistance = collisionDist;
             closestHit = { ball, point: contactPoint };
         }
     });
 
+    // Simplified Physics applied to the handleBallCollision case
     if (closestHit) {
         const targetBall = closestHit.ball;
         const collisionPoint = closestHit.point;
         points.push(collisionPoint);
 
-        // === Fisica semplificata ===
         const m1 = whiteBall.mass;
         const m2 = targetBall.mass;
         const e = 0.8;
@@ -695,7 +1091,7 @@ function updateAimLine() {
             .normalize();
 
         const v1n = normal.dot(initialVelocity);
-        const v2n = 0;
+        const v2n = 0; // The 2nd ball is still
 
         const v1nFinal =
             (m1 * v1n + m2 * v2n - e * m2 * (v1n - v2n)) / (m1 + m2);
@@ -722,7 +1118,7 @@ function updateAimLine() {
             .clone()
             .add(targetFinalVel.clone().multiplyScalar(scale));
 
-        // Linea bianca (verde)
+        // WhiteBall post-collision line (GREEN)
         aimWhiteLine = new THREE.Line(
             new THREE.BufferGeometry().setFromPoints([
                 collisionPoint,
@@ -732,7 +1128,7 @@ function updateAimLine() {
         );
         scene.add(aimWhiteLine);
 
-        // Linea bersaglio (blu)
+        // Target Ball post-collision line (BLUE)
         aimTargetLine = new THREE.Line(
             new THREE.BufferGeometry().setFromPoints([
                 collisionPoint,
@@ -742,12 +1138,13 @@ function updateAimLine() {
         );
         scene.add(aimTargetLine);
     } else {
-        // Nessuna palla colpita → calcolo bordo tavolo
+        // No ball -> Handle Table Collision Line
         const ray = new THREE.Ray(start.clone(), direction.clone());
         const boundaryHit = new THREE.Vector3();
 
+        // We compute bouncing point and reflected direction
         if (ray.intersectBox(tableBox, boundaryHit)) {
-            boundaryHit.y += 0.035;
+            boundaryHit.y = 2.6;
             points.push(boundaryHit);
 
             const bounceDirection = direction.clone();
@@ -759,9 +1156,11 @@ function updateAimLine() {
             const reflectedEnd = boundaryHit
                 .clone()
                 .add(bounceDirection.multiplyScalar(0.5));
-            reflectedEnd.y += 0.035;
+            reflectedEnd.y = 2.6;
             points.push(reflectedEnd);
-        } else {
+        }
+        // Straight Line
+        else {
             const fallbackEnd = start
                 .clone()
                 .add(direction.clone().multiplyScalar(3));
@@ -770,7 +1169,7 @@ function updateAimLine() {
         }
     }
 
-    // Linea principale (rossa)
+    // AimLine (RED)
     aimLine = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(points),
         new THREE.LineBasicMaterial({ color: 0xff0000 })
@@ -792,13 +1191,123 @@ scene.add(axesHelper);
 
 */
 
-//-----------------------//
+//--------------------------------------------------------------------------------//
+// Updating UI Interface at the start
+//--------------------------------------------------------------------------------//
+
+let playerType = null;
+let opponentType = null;
+let currentPlayer = 1;
+let playerScore = 0;
+let opponentScore = 0;
+
+// Shows the current player type on the UI
+function updatePlayerTypeUI() {
+    const el = document.getElementById("player-type");
+
+    if (playerType) {
+        if (currentPlayer === 1) {
+            el.innerText = `🎱 Player ${currentPlayer} (${playerType.toUpperCase()}): ${playerScore} points`;
+        } else if (currentPlayer === 2) {
+            el.innerText = `🎱 Player ${currentPlayer} (${opponentType.toUpperCase()}): ${opponentScore} points`;
+        }
+    } else {
+        el.innerText = `🎱 Player ${currentPlayer}: Waiting for the first valid pocketed ball`;
+    }
+}
+
+//----------------------//
+// Enhancing VFX
+//----------------------//
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(
+    new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.5, // strength (how it "shines")
+        0.1, // radius (the smaller, the more contained is the glow)
+        0.85 // threshold
+    )
+);
+
+// POSSIBLE TESTED CAUSE OF LAG!
+// Define Led Lights in the pocket position (sligthly under the pocket)
+const ledLights = [];
+const ledLightsPosition = [
+    new THREE.Vector3(tableMinX + 0.05, 2.5, tableMinZ + 0.05), // TOP RIGHT
+    new THREE.Vector3(tableMinX + 0.05, 2.5, tableMaxZ - 0.05), // TOP LEFT
+    new THREE.Vector3(tableMaxX - 0.05, 2.5, tableMinZ + 0.05), // BOTTOM RIGHT
+    new THREE.Vector3(tableMaxX - 0.05, 2.5, tableMaxZ - 0.05), // BOTTOM LEFT
+    new THREE.Vector3(tableMinX - 0.15, 2.5, 0), // CENTER TOP
+    new THREE.Vector3(tableMaxX + 0.15, 2.5, 0), // CENTER BOTTOM
+];
+
+function createLedLights() {
+    ledLightsPosition.forEach((pos) => {
+        const ledLight = new THREE.PointLight(0x00ffcc, 1, 1.5);
+        ledLight.castShadow = false;
+        ledLight.position.copy(pos);
+        ledLights.push(ledLight);
+        scene.add(ledLight);
+    });
+}
+
+createLedLights();
+
+//-------------------------------//
+// Tweakpane params customization
+//-------------------------------//
+const params = {
+    stickForce: 2.5,
+    rotationSpeed: 0.025,
+    subSteps: 4,
+};
+
+const pane = new Pane();
+pane.element.style.scale = "1.075";
+
+const stickForceInput = pane.addBinding(params, "stickForce", {
+    min: 0.1,
+    max: 5,
+    step: 0.1,
+    label: "Shot Power",
+});
+
+const rotationSpeedInput = pane.addBinding(params, "rotationSpeed", {
+    min: 0.001,
+    max: 0.05,
+    step: 0.001,
+    label: "Rotation Speed",
+});
+
+const subStepsInput = pane.addBinding(params, "subSteps", {
+    min: 2,
+    max: 12,
+    step: 2,
+    label: "Physics Steps",
+});
+
+// Applying changes
+stickForceInput.on("change", (ev) => {
+    stickForce = ev.value;
+});
+
+rotationSpeedInput.on("change", (ev) => {
+    rotationSpeed = ev.value;
+});
+
+subStepsInput.on("change", (ev) => {
+    subSteps = ev.value;
+});
+
+//-----------------//
 // Initialize Clock
-//-----------------------//
+//-----------------//
 const clock = new THREE.Clock();
 
 // ----------------------------------//
-// Animation Loop + Helper Functions //
+// Animation Loop + Helper Functions
 // ----------------------------------//
 
 function animate() {
@@ -807,12 +1316,10 @@ function animate() {
     updatePhysics(deltaTime);
     balls.forEach((ball) => ball.update(deltaTime));
 
+    // Checking only not pocketed balls
     balls.forEach((ball) => {
-        if (checkBallInPocket(ball) && ball !== whiteBall) {
-            removeBall(ball);
-            score++;
-            console.log("Palla in Buca!! Il tuo punteggio: " + score);
-            console.log("La palla era Solid? " + ball.isSolid);
+        if (!ball.isPocketed && checkBallInPocket(ball)) {
+            handleBallPocketed(ball);
         }
     });
 
@@ -828,17 +1335,32 @@ function animate() {
     );
 
     if (allBallsStopped) {
-        // Azzeriamo tutte le velocità
         balls.forEach((ball) => ball.velocity.set(0, 0, 0));
 
-        // Ora possiamo aggiornare stecca e linea mira
-        adjustStickPosition();
-        updateAimLine();
+        if (shotTaken && !turnEvaluated) {
+            evaluateTurnEnd();
+            shotTaken = false;
+            turnEvaluated = true;
+        }
+
+        if (!shotTaken) {
+            adjustStickPosition();
+            updateAimLine();
+        }
     }
 
+    updatePlayerTypeUI();
     controls.update();
+
+    if (vfxEnabled) {
+        // VFX Enabled -> Enhanced Rendering
+        composer.render();
+    } else {
+        // VFX Disabled -> Classic Rendering
+        renderer.render(scene, camera);
+    }
+
     requestAnimationFrame(animate);
-    renderer.render(scene, camera);
 }
 
 animate();
