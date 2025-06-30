@@ -327,7 +327,7 @@ class Ball {
         this.angularVelocity
             .copy(
                 new THREE.Vector3()
-                    .crossVectors(this.velocity, new THREE.Vector3(0, 1, 0))
+                    .crossVectors(this.velocity, new THREE.Vector3(0, 1, 0)) // Tangent Velocity (velocity * y-vector in order to grant x|z correct spin) / radius
                     .divideScalar(this.geometry.parameters.radius)
             )
             .multiplyScalar(spinScale); // Tanget Velocity divided with radius and multiplied by spinScale
@@ -338,7 +338,7 @@ class Ball {
         this.mesh.rotation.z += this.angularVelocity.z * deltaTime;
 
         // Simulates friction by reducing the velocity by 2% each frame
-        const dampingFactorPerSecond = 0.8; // Can be redifined to change the friction level
+        const dampingFactorPerSecond = 0.8; // Can be redifined to change the friction level (the lower, the slower)
         const damping = Math.pow(dampingFactorPerSecond, deltaTime); // deltaTime refers to the substeps
         this.velocity.multiplyScalar(damping);
         this.angularVelocity.multiplyScalar(damping);
@@ -349,7 +349,7 @@ class Ball {
 // Creating Balls + Texture and Triangle Positioning
 //----------------------------------------------//
 const ballRadius = 0.075;
-const spacing = ballRadius * 2.05;
+let spacingOffset = 2.05;
 const triangleStart = new THREE.Vector3(1.25, 2.55, 0);
 const balls = [];
 
@@ -357,6 +357,7 @@ let whiteBall = new Ball(ballRadius, new THREE.Vector3(0, 2.55, -1.5));
 balls.push(whiteBall);
 
 function createTriangleBalls() {
+    const spacing = ballRadius * spacingOffset;
     let index = 0;
     const rows = 5;
 
@@ -437,10 +438,10 @@ function handleTableCollision(ball) {
     // Z-Axis Collision
     if (ball.mesh.position.z - r < tableMinZ) {
         ball.mesh.position.z = tableMinZ + r;
-        ball.velocity.z = -ball.velocity.z * 0.9;
+        ball.velocity.z = -ball.velocity.z * 0.85;
     } else if (ball.mesh.position.z + r > tableMaxZ) {
         ball.mesh.position.z = tableMaxZ - r;
-        ball.velocity.z = -ball.velocity.z * 0.9;
+        ball.velocity.z = -ball.velocity.z * 0.85;
     }
 }
 
@@ -476,6 +477,8 @@ function resolveCollision(ball1, ball2) {
 
     // If the balls are overlapping
     if (overlap > 0) {
+        // Final Velocity 1/2 = ((m1v1n) + (m2v2n) - e(m2|m1(v1n-v2n))) / (m1 + m2)
+
         ball1.mesh.position.addScaledVector(normal, -overlap / 2);
         ball2.mesh.position.addScaledVector(normal, overlap / 2);
 
@@ -497,12 +500,14 @@ function resolveCollision(ball1, ball2) {
         ball1.velocity.addScaledVector(normal, v1nChange);
         ball2.velocity.addScaledVector(normal, v2nChange);
 
-        // Next we want to compute the spin applied to each ball
+        // Spin applied to each ball
         // and the effect this is going to have on the final trajectory
+        // cP = (c1 + c2) / 2
         const contactPoint = new THREE.Vector3()
             .addVectors(ball1.mesh.position, ball2.mesh.position)
             .multiplyScalar(0.5);
 
+        // Vectors c1|2 - contactPoint -> Torque applied to each ball
         const r1 = new THREE.Vector3().subVectors(
             contactPoint,
             ball1.mesh.position
@@ -512,6 +517,7 @@ function resolveCollision(ball1, ball2) {
             ball2.mesh.position
         );
 
+        // Angular Impulse
         const impulseScalar = Math.abs(v1nChange) * m1;
         const spinTransferCoeff = 0.2;
 
@@ -528,6 +534,7 @@ function resolveCollision(ball1, ball2) {
         // Spin effect on the trajectory
         const spinInfluenceCoeff = 0.05;
 
+        // Reproducing the "screw" effect from the 8-Ball Pool Table (friction)
         const spinEffect1 = new THREE.Vector3()
             .crossVectors(ball1.angularVelocity, normal)
             .multiplyScalar(spinInfluenceCoeff);
@@ -585,7 +592,7 @@ pocketPositions.forEach((pos) => {
     const material = new THREE.MeshBasicMaterial({
         color: "white",
         wireframe: true,
-        visible: false,
+        visible: false, // Set to true for debugging
     });
     const pocket = new THREE.Mesh(geometry, material);
 
@@ -682,6 +689,7 @@ function handleBallPocketed(ball) {
     }
 
     ball.isPocketed = true;
+    const forwardOffset = ball.velocity.clone().normalize().multiplyScalar(0.5); // We save the velocity in order to use it for pocket effect
     ball.velocity.set(0, 0, 0);
     ball.angularVelocity.set(0, 0, 0);
 
@@ -722,13 +730,13 @@ function handleBallPocketed(ball) {
 
     // Update pocketed ball position (let it fall into the canister)
     ball.targetPosition = new THREE.Vector3(
-        ball.mesh.position.x,
+        ball.mesh.position.x + forwardOffset.x,
         2.1,
-        ball.mesh.position.z
+        ball.mesh.position.z + forwardOffset.z
     );
 
     ball.update = function (deltaTime) {
-        this.mesh.position.lerp(this.targetPosition, 0.005);
+        this.mesh.position.lerp(this.targetPosition, 0.0075);
     };
 }
 
@@ -1261,6 +1269,7 @@ createLedLights();
 const params = {
     stickForce: 2.5,
     rotationSpeed: 0.025,
+    spacingOffset: 2.05,
     subSteps: 4,
 };
 
@@ -1288,6 +1297,13 @@ const subStepsInput = pane.addBinding(params, "subSteps", {
     label: "Physics Steps",
 });
 
+const spacingOffsetInput = pane.addBinding(params, "spacingOffset", {
+    min: 2.0,
+    max: 5,
+    steps: 0.05,
+    label: "Spacing Offset",
+});
+
 // Applying changes
 stickForceInput.on("change", (ev) => {
     stickForce = ev.value;
@@ -1299,6 +1315,12 @@ rotationSpeedInput.on("change", (ev) => {
 
 subStepsInput.on("change", (ev) => {
     subSteps = ev.value;
+});
+
+spacingOffsetInput.on("change", (ev) => {
+    spacingOffset = ev.value;
+
+    resetMatch();
 });
 
 //-----------------//
