@@ -11,3 +11,11 @@ This project was developed as the final assignment for the Interactive Graphics 
 This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
 
 Proper attribution is appreciated if you use or modify this work.
+
+## Attribution
+
+If you use or adapt this project, please include a credit to the original author:
+
+**Developed by [Your Name]**  
+GitHub: [yourusername](https://github.com/yourusername)
+
