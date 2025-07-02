@@ -44,18 +44,22 @@ This project was developed as the **final assignment** for the **Interactive Gra
 ---
 
 ## 📁 File Structure
-/models/
-├── billiards/
-│ ├── scene.gltf
-│ └── textures/balls/ball1.png ... ball15.png
-├── billiard_cue/
-│ └── scene.gltf
 
-index.html
-main.js
-style.css
-README.md
-LICENSE
+```bash
+📁 /models/
+├── 📁 billiards/
+│   ├── 🎮 scene.gltf
+│   └── 📁 textures/balls/
+│       ├── ball1.png ... ball15.png
+├── 📁 billiard_cue/
+│   └── 🎮 scene.gltf
+
+📄 index.html
+📄 main.js
+📄 style.css
+📄 README.md
+📄 LICENSE
+```
 
 ---
 
