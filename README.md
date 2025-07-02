@@ -1,21 +1,89 @@
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-# 8ball-threejs-game
-A browser-based simulation of the classic 8-ball pool game, featuring realistic physics, interactive cue controls, ball collisions, friction, and dynamic lighting. Developed with Three.js to explore 3D rendering, shading, and manual game physics in a web environment.
+# 🎱 8ball-threejs-game
 
-# Note
-This project was developed as the final assignment for the Interactive Graphics course in the Engineering in Computer Science degree program at Sapienza University of Rome.
+A browser-based simulation of the classic 8-ball pool game, featuring realistic physics, interactive cue controls, dynamic lighting, friction simulation, and ball-to-ball and ball-to-wall collisions.  
+Developed using **Three.js**, this project explores 3D rendering, shading, and real-time physics implementation in a web environment.
 
-## License
+---
 
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+## 📚 Project Info
 
-Proper attribution is appreciated if you use or modify this work.
+This project was developed as the **final assignment** for the **Interactive Graphics** course in the *Engineering in Computer Science* MSc program at **Sapienza University of Rome**.
 
-## Attribution
+---
 
-If you use or adapt this project, please include a credit to the original author:
+## 🚀 Core Features
+
+- ✅ Realistic ball physics (momentum, friction, angular velocity)
+- ✅ Collision detection and resolution (ball–ball, ball–table)
+- ✅ Interactive cue stick with animated shooting motion
+- ✅ Predictive trajectory lines with bounce/collision logic
+- ✅ Dynamic camera views (top, front, back, reset)
+- ✅ HUD for controlling camera, settings, and key bindings
+- ✅ VFX toggle: bloom effect, shadows, ambient lighting
+- ✅ Scoring system, fouls, and 8-ball win/lose logic
+- ✅ Texture-mapped balls with GLTF loading
+- ✅ Customizable parameters via Tweakpane UI
+
+---
+
+## 🧪 Controls
+
+### ⌨️ Keyboard
+- `←` / `→`: Rotate the cue stick
+- `Enter`: Shoot the cue stick
+
+### 🖱️ UI Buttons
+- **Camera Views**: Top, Front, Back, Reset
+- **Reset Triangle**: Reset all balls
+- **Toggle HUD**: Show/hide options
+- **VFX Toggle**: Enable/disable lighting effects
+- **Dummy Shot**: Shoot randomly for testing
+
+---
+
+## 📁 File Structure
+/models/
+├── billiards/
+│ ├── scene.gltf
+│ └── textures/balls/ball1.png ... ball15.png
+├── billiard_cue/
+│ └── scene.gltf
+
+index.html
+main.js
+style.css
+README.md
+LICENSE
+
+---
+
+## 🔧 Dependencies
+
+- [Three.js](https://threejs.org/)
+- [GLTFLoader](https://threejs.org/docs/#examples/en/loaders/GLTFLoader)
+- [OrbitControls](https://threejs.org/docs/#examples/en/controls/OrbitControls)
+- [UnrealBloomPass](https://threejs.org/docs/#examples/en/postprocessing/UnrealBloomPass)
+- [Tweakpane](https://cocopon.github.io/tweakpane/)
+- [ToastifyJS](https://apvarun.github.io/toastify-js/)
+
+---
+
+## 📖 License
+
+This project is licensed under the **MIT License**.  
+See the [LICENSE](./LICENSE) file for full details.
+
+> Proper attribution is appreciated if you use or adapt this work.
+
+---
+
+## 🙏 Attribution
+
+If you use or modify this project, please credit the original author:
 
 **Developed by [Kevin Forte]**  
-GitHub: [Sk4rKr0w](https://github.com/Sk4rKr0w)
+GitHub: [@Sk4rKr0w](https://github.com/Sk4rKr0w)
+
 
