@@ -3,3 +3,9 @@ A browser-based simulation of the classic 8-ball pool game, featuring realistic 
 
 # Note
 This project was developed as the final assignment for the Interactive Graphics course in the Engineering in Computer Science degree program at Sapienza University of Rome.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
+
+Proper attribution is appreciated if you use or modify this work.
