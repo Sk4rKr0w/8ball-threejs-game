@@ -16,6 +16,6 @@ Proper attribution is appreciated if you use or modify this work.
 
 If you use or adapt this project, please include a credit to the original author:
 
-**Developed by [Your Name]**  
-GitHub: [yourusername](https://github.com/yourusername)
+**Developed by [Kevin Forte]**  
+GitHub: [Sk4rKr0w](https://github.com/Sk4rKr0w)
 
