@@ -76,7 +76,7 @@ loader.load("/models/billiards/scene.gltf", (gltf) => {
 const ambientLight = new THREE.AmbientLight(0x2c2c2c, 0.05);
 scene.add(ambientLight);
 
-const spotLight = new THREE.SpotLight(0xfff2e5, 50);
+const spotLight = new THREE.SpotLight(0xfff2e5, 40);
 spotLight.position.set(0, 5.75, 0);
 spotLight.angle = Math.PI / 2.75;
 spotLight.penumbra = 0.7;
@@ -179,7 +179,7 @@ document.getElementById("ball-triangle-btn").addEventListener("click", () => {
 
 // Helper Function to reset the entire match
 function resetMatch() {
-    // 1 - Removing all the ball from the scene
+    // 1 - Removing all the balls from the scene
     balls.forEach((ball) => {
         scene.remove(ball.mesh);
     });
@@ -245,7 +245,7 @@ document.getElementById("vfx-disable-btn").addEventListener("click", () => {
 // "Take a Shot" Dummy Test:
 // Shoots the white ball to a random position by setting its velocity
 document.getElementById("dummy-test-btn").addEventListener("click", () => {
-    const randomSpeed = 7;
+    const randomSpeed = 5;
     const vx = (Math.random() * 2 - 1) * randomSpeed;
     const vz = (Math.random() * 2 - 1) * randomSpeed;
     whiteBall.velocity.set(vx, 0, vz);
@@ -297,8 +297,7 @@ class Ball {
     constructor(radius, initialPosition, texture = null) {
         this.geometry = new THREE.SphereGeometry(radius, 16, 16);
         this.material = new THREE.MeshStandardMaterial({
-            metalness: 0.5,
-            roughness: 0.2,
+            roughness: 0.15,
             map: texture,
         });
         this.mesh = new THREE.Mesh(this.geometry, this.material);
@@ -477,7 +476,7 @@ function resolveCollision(ball1, ball2) {
 
     // If the balls are overlapping
     if (overlap > 0) {
-        // Final Velocity 1/2 = ((m1v1n) + (m2v2n) - e(m2|m1(v1n-v2n))) / (m1 + m2)
+        // Final Velocity 1/2 = ((m1v1n) + (m2v2n) -|+ e(m2|m1(v1n-v2n))) / (m1 + m2)
 
         ball1.mesh.position.addScaledVector(normal, -overlap / 2);
         ball2.mesh.position.addScaledVector(normal, overlap / 2);
@@ -721,9 +720,6 @@ function handleBallPocketed(ball) {
                 fontWeight: "bold",
             },
         }).showToast();
-
-        console.log("🧩 Giocatore 1:", playerType.toUpperCase());
-        console.log("🧩 Giocatore 2:", opponentType.toUpperCase());
 
         updatePlayerTypeUI?.();
     }
@@ -976,8 +972,6 @@ function adjustStickPosition() {
 function animateStickShot(callback) {
     // Setting up durations params
     const duration = 150;
-    const retreatDelay = 75;
-    const retreatDuration = 150;
 
     // Initial/Final pos of the stick
     const start = -1.75;
@@ -1042,7 +1036,7 @@ function updateAimLine() {
     // will be so close to hit each other, if so we save it
 
     // targetCenter = center of the target ball
-    // collisionRadius = sum of the radius (ball - ball)
+    // collisionRadiusSum = sum of the radius (ball - whiteBall)
     // toTarget = White Ball Vector
     // projectionLength = Projection of the shot
     // closestDistSq = Squared distance between the stick and the target ball
@@ -1107,7 +1101,6 @@ function updateAimLine() {
             (m1 * v1n + m2 * v2n + e * m1 * (v1n - v2n)) / (m1 + m2);
 
         const v1nChange = v1nFinal - v1n;
-        const v2nChange = v2nFinal - v2n;
 
         const whiteFinalVel = initialVelocity
             .clone()
@@ -1150,7 +1143,7 @@ function updateAimLine() {
         const ray = new THREE.Ray(start.clone(), direction.clone());
         const boundaryHit = new THREE.Vector3();
 
-        // We compute bouncing point and reflected direction
+        // Bouncing point and reflected direction
         if (ray.intersectBox(tableBox, boundaryHit)) {
             boundaryHit.y = 2.6;
             points.push(boundaryHit);
@@ -1241,6 +1234,7 @@ composer.addPass(
 
 // POSSIBLE TESTED CAUSE OF LAG!
 // Define Led Lights in the pocket position (sligthly under the pocket)
+
 const ledLights = [];
 const ledLightsPosition = [
     new THREE.Vector3(tableMinX + 0.05, 2.5, tableMinZ + 0.05), // TOP RIGHT
