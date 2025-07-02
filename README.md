@@ -43,6 +43,37 @@ This project was developed as the **final assignment** for the **Interactive Gra
 
 ---
 
+## Must Know Params
+
+- **Shot Power**  
+  **Description:**  
+  This parameter controls the force with which the cue hits the white ball. A higher value increases the initial speed of the ball, making the shot more powerful and the balls move faster on the table.
+
+  **Impact on gameplay:**  
+  A value that is too high might cause balls to fly off the table or make the game feel unrealistic (especially if combined with low physics steps)
+
+- **Rotation Speed**  
+  **Description:**  
+  This represents the speed at which the cue rotates around the white ball. It affects the accuracy of the shot the user experience.
+
+  **Impact on gameplay:**  
+  A high value results in fast and dynamic rotation but less accuracy. A low value results in slower, more precise rotation.
+
+- **Physics Steps**  
+  **Description:**  
+  This indicates the number of physics simulation sub-steps performed per frame. The higher the value, the more accurate and stable the physics simulation (collisions, movements) will be, but at the cost of performance.
+
+  **Impact on gameplay:**  
+  Low values can cause irregular behavior or imprecise collisions, while high values improve smoothness and accuracy but may slow down the game.
+
+- **Spacing Offset**  
+  **Description:**  
+  This represents the minimum separation distance between balls when they are positioned on the table to avoid overlapping. This offset ensures that the balls always start slightly spaced apart.
+
+  **Impact on gameplay:**  
+  A value that is too small may cause balls to overlap, resulting in visual glitches or physics simulation issues. A value that is too large can affect the initial setup and aesthetics of the game. It was thought for custom games
+
+---
 ## 📁 File Structure
 
 ```bash
